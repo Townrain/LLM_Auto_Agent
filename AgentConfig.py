@@ -4,9 +4,10 @@ class AgentConfig:
     """Agent配置类，管理所有超参数"""
     
     def __init__(self):
-        # API配置
-        self.api_key = os.getenv("GOOGLE_API_KEY")
-        self.model_name = "gemini-2.5-flash"
+        # API配置 - 修改为支持 DeepSeek
+        self.api_key = os.getenv("DEEPSEEK_API_KEY")
+        self.model_name = "deepseek-chat"
+        self.base_url = "https://api.deepseek.com"
         
         # 对话管理配置
         self.max_steps = 10  #单次ai最多执行步骤
