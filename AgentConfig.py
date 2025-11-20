@@ -20,3 +20,12 @@ class AgentConfig:
         # 调试配置
         self.show_system_messages = False  # 是否显示系统消息
         self.conda = "New"  # conda环境名称,执行py指令时候会使用该环境
+        
+        # 数据库配置
+        self.database_config = {
+            'host': os.getenv('DB_HOST', 'localhost'),
+            'database': os.getenv('DB_NAME', 'llm_agent'),
+            'user': os.getenv('DB_USER', 'root'),
+            'password': os.getenv('DB_PASSWORD', ''),
+            'port': int(os.getenv('DB_PORT', '3306'))
+        }
