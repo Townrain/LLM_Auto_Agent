@@ -4,7 +4,7 @@
 
 import ast
 import re
-from google import genai
+import requests
 import os
 import platform
 from string import Template
@@ -16,9 +16,10 @@ from string import Template
 from typing import List, Callable, Tuple
 from prompt_template import react_system_prompt_template
 
-API_KEY = os.getenv("GOOGLE_API_KEY")
-# 初始化客户端
-google_client = genai.Client(api_key=API_KEY)
+API_KEY = os.getenv("DEEPSEEK_API_KEY")
+BASE_URL = "https://api.deepseek.com"
+MODEL_NAME = "deepseek-chat"
+
 project_directory = "D:/"
 
 
@@ -119,6 +120,37 @@ def run_terminal_command(command):
         return {"status": "exception", "error": str(e)}
 
 
+def call_deepseek_api(messages):
+    """调用 DeepSeek API"""
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "model": MODEL_NAME,
+        "messages": messages,
+        "stream": False
+    }
+    
+    try:
+        response = requests.post(
+            f"{BASE_URL}/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=60
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            return result["choices"][0]["message"]["content"]
+        else:
+            raise Exception(f"API调用失败: {response.status_code} - {response.text}")
+            
+    except Exception as e:
+        raise Exception(f"DeepSeek API调用错误: {str(e)}")
+
+
 tools = {func.__name__: func for func in [read_file, write_to_file, run_terminal_command]}
 
 
@@ -160,7 +192,7 @@ def create_system_message(user_question: str) -> dict:
     """创建包含系统提示的消息"""
     system_prompt = render_system_prompt(react_system_prompt_template)
     content = f"{system_prompt}\n\nquestion: {user_question}"
-    return {"role": "user", "parts": [{"text": content}]}
+    return {"role": "user", "content": content}
 
 
 def manage_message_context(messages: list, max_context_length: int = 10) -> list:
@@ -175,14 +207,13 @@ def manage_message_context(messages: list, max_context_length: int = 10) -> list
     
     for msg in recent_messages:
         # 保留包含observation的消息（工具执行结果）
-        if "observation" in str(msg.get("parts", [{}])[0].get("text", "")):
+        if "observation" in str(msg.get("content", "")):
             important_messages.append(msg)
         # 保留最近的用户问题和AI回答
-        elif msg["role"] in ["user", "model"]:
+        elif msg["role"] in ["user", "assistant"]:
             important_messages.append(msg)
     
     return important_messages[-max_context_length:]
-
 
 
 # 配置参数
@@ -196,19 +227,15 @@ system_prompt = render_system_prompt(react_system_prompt_template)
 initial_input = f"{system_prompt}\n\nquestion: {user_input}"
 
 messages = [
-    {"role": "user", "parts": [{"text": initial_input}]}
+    {"role": "user", "content": initial_input}
 ]
 
 max_steps = 10  # 防止无限循环，适当增加步骤数
 
 for _ in range(max_steps):
     try:
-        response = google_client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=messages
-        )
-        content = response.text
-        messages.append({"role": "model", "parts": [{"text":content}]})
+        content = call_deepseek_api(messages)
+        messages.append({"role": "assistant", "content": content})
 
         print("Agent:", content)
         
@@ -239,7 +266,7 @@ for _ in range(max_steps):
                     print(f"[系统] 系统提示已刷新，保留 {len(messages)} 条上下文消息")
                 else:
                     user_input = input("请输入你的问题: ")
-                    messages.append({"role": "user", "parts": [{"text": f"question: {user_input}"}]})
+                    messages.append({"role": "user", "content": f"question: {user_input}"})
             elif "action" in response_json:
                 action_str = response_json["action"]
                 print(f"执行动作: {action_str}")
@@ -266,29 +293,29 @@ for _ in range(max_steps):
                             try:
                                 result = tools[func_name](*args)
                                 observation_msg = f'{{"observation": "{result}"}}'
-                                messages.append({"role": "user", "parts": [{"text": observation_msg}]})
+                                messages.append({"role": "user", "content": observation_msg})
                                 print(f"观察结果: {result}")
                                 print(f"[系统] 当前消息数: {len(messages)}")
                             except Exception as tool_error:
                                 # 工具执行失败，将错误信息返回给AI
                                 error_msg = f'{{"observation": "工具执行失败: {str(tool_error)}"}}'
-                                messages.append({"role": "user", "parts": [{"text": error_msg}]})
+                                messages.append({"role": "user", "content": error_msg})
                                 print(f"工具执行出错: {tool_error}")
                                 print(f"[系统] 已将错误信息返回给AI")
                         else:
                             # 未知函数，也要告知AI
                             error_msg = f'{{"observation": "错误: 未知的工具函数 {func_name}"}}'
-                            messages.append({"role": "user", "parts": [{"text": error_msg}]})
+                            messages.append({"role": "user", "content": error_msg})
                             print(f"未知的工具函数: {func_name}")
                     else:
                         # 函数调用格式解析失败，告知AI
                         error_msg = f'{{"observation": "错误: 无法解析函数调用格式 {action_str}"}}'
-                        messages.append({"role": "user", "parts": [{"text": error_msg}]})
+                        messages.append({"role": "user", "content": error_msg})
                         print(f"无法解析函数调用格式: {action_str}")
                 except Exception as e:
                     # 参数解析失败，告知AI
                     error_msg = f'{{"observation": "错误: 函数参数解析失败 - {str(e)}"}}'
-                    messages.append({"role": "user", "parts": [{"text": error_msg}]})
+                    messages.append({"role": "user", "content": error_msg})
                     print(f"执行工具函数时出错: {e}")
                     print(f"[系统] 已将参数解析错误返回给AI")
             else:
