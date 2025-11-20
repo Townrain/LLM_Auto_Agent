@@ -28,6 +28,57 @@
 pip install mysql-connector-python
 ```
 
+## ⚙️ 可选配置
+
+数据库功能是**完全可选的**，默认情况下**禁用**。用户需要明确启用才能使用数据库功能。
+
+### 启用方式
+
+#### 方式一：配置文件（推荐）
+
+在 `AgentConfig.py` 中设置：
+
+```python
+# 启用数据库功能
+enable_database = True
+
+# 配置数据库连接
+database_config = {
+    'host': 'localhost',
+    'database': 'llm_agent',
+    'user': 'your_username',
+    'password': 'your_password',
+    'port': 3306
+}
+```
+
+#### 方式二：环境变量
+
+```bash
+# 启用数据库功能
+export ENABLE_DATABASE=true
+
+# 配置数据库连接
+export DB_HOST=localhost
+export DB_NAME=llm_agent
+export DB_USER=root
+export DB_PASSWORD=your_password
+export DB_PORT=3306
+```
+
+### 禁用数据库
+
+如果不想使用数据库功能，可以：
+
+1. 不设置任何数据库配置
+2. 设置 `enable_database = False`
+3. 不安装数据库依赖
+
+系统会在启动时显示数据库状态：
+```
+[系统] 数据库功能已禁用
+```
+
 ## 🗄️ 数据库设置
 
 ### 1. 创建数据库
@@ -95,16 +146,6 @@ DATABASE_CONFIG = {
     'password': 'your_password',
     'port': 3306
 }
-```
-
-或者使用环境变量：
-
-```bash
-export DB_HOST=localhost
-export DB_NAME=llm_agent
-export DB_USER=root
-export DB_PASSWORD=your_password
-export DB_PORT=3306
 ```
 
 ## 🚀 功能特性
@@ -274,5 +315,6 @@ agent = ReactAgent(config)
 - ✅ 个性化服务支持
 - ✅ 知识库管理功能
 - ✅ 对话历史追踪
+- ✅ **可选配置** - 用户完全控制是否启用数据库
 
 这使得 AI 能够提供更准确、更连贯、更个性化的服务，大大提升了用户体验。
