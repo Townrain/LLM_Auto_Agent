@@ -22,6 +22,7 @@ class AgentConfig:
         self.conda = "New"  # conda环境名称,执行py指令时候会使用该环境
         
         # 数据库配置
+        self.enable_database = os.getenv('ENABLE_DATABASE', 'false').lower() == 'true'
         self.database_config = {
             'host': os.getenv('DB_HOST', 'localhost'),
             'database': os.getenv('DB_NAME', 'llm_agent'),
