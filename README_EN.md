@@ -14,7 +14,7 @@ This is an intelligent agent system based on the ReAct (Reasoning and Acting) pa
 - [LtdEdition-Peng/Langchain_Auto_Agent(GitHub)](https://github.com/LtdEdition-Peng/Langchain_Auto_Agent)
 ## Core Features
 
-- 🤖 **Intelligent Reasoning**: Smart conversation and reasoning capabilities based on Google Gemini model
+- 🤖 **Intelligent Reasoning**: Smart conversation and reasoning capabilities based on DeepSeek model
 - 🔧 **Multi-Tool Integration**: Supports file operations, web search, system command execution, and more
 - 💬 **Conversation Management**: Intelligent context management and conversation state maintenance
 - 🔄 **Automatic Loop**: Supports automated workflows with multi-step reasoning and tool invocation
@@ -51,18 +51,29 @@ This is an intelligent agent system based on the ReAct (Reasoning and Acting) pa
 
 - Python 3.8+
 - Conda environment manager (Python-related commands require environment activation)
-- Google API Key
-- VPN required for network access
+- DeepSeek API Key
 
 ### Environment Variable Configuration
 
 Set in system environment variables:
-Google API key can be obtained from https://aistudio.google.com/apikey
+DeepSeek API key can be obtained from https://platform.deepseek.com/api_keys
 ```bash
-GOOGLE_API_KEY=your_google_api_key_here
+DEEPSEEK_API_KEY=your_deepseek_api_key_here
+```
+
+Or create a `.env` file:
+```bash
+cp .env.example .env
+# Then fill in your DeepSeek API Key in the .env file
 ```
 
 ## Quick Start
+
+### Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
 
 ### Basic Usage
 
@@ -83,11 +94,12 @@ python little_test.py
 
 ```python
 class AgentConfig:
-    api_key: str                    # Google API Key
-    model_name: str                 # Model name (default: "gemini-2.5-flash")
+    api_key: str                    # DeepSeek API Key
+    model_name: str                 # Model name (default: "deepseek-chat")
+    base_url: str                   # API base URL (default: "https://api.deepseek.com")
     max_steps: int                  # Maximum reasoning steps (default: 10)
     refresh_prompt_interval: int    # Prompt refresh interval (default: 3)
-    project_directory: str          # Project directory (default: "D:/")
+    project_directory: str          # Project directory (default: "D/")
     show_system_messages: bool      # Whether to show system messages (default: False)
     conda: str                      # Conda environment name (default: "New")
 ```
@@ -143,7 +155,7 @@ config.show_system_messages = True
 
 ## Important Notes
 
-1. Ensure Google API Key is properly configured (VPN required for conversations)
+1. Ensure DeepSeek API Key is properly configured
 2. Some tools require network connection
 3. System command execution requires appropriate permissions
 4. Conda environment needs to be pre-configured
@@ -165,7 +177,7 @@ config.show_system_messages = True
 This project is inspired by the following projects and research:
 
 - Thanks to the project tutorial [MarkTechStation/VideoCode](https://github.com/MarkTechStation/VideoCode)
-- Thanks to Google Gemini API for providing powerful language model support
+- Thanks to DeepSeek API for providing powerful language model support
 
 If you encounter any issues while using this project or have suggestions for improvement, please feel free to submit an Issue or Pull Request!
 
