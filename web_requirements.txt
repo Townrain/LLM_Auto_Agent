@@ -1,14 +1,25 @@
-# LLM Auto Agent Web 界面依赖
+# LLM Auto Agent Web界面依赖
+# Web应用专用依赖
+
+# Web框架
 Flask==2.3.3
 Flask-CORS==4.0.0
-python-dotenv==1.0.0
-Werkzeug==2.3.7
 
-# 现有项目的依赖
+# 环境变量管理
+python-dotenv==1.0.0
+
+# HTTP请求
 requests==2.31.0
-openai==1.3.0
-pymysql==1.1.0
-python-dotenv==1.0.0
 
-# 可选：如果需要更好的异步支持
-# gevent==23.9.1
+# 数据库连接
+PyMySQL==1.1.0
+
+# 网页搜索
+DuckDuckGo-Search==3.9.6
+
+# 文件处理
+PyPDF2==3.0.1
+python-docx==0.8.11
+
+# 其他工具
+Werkzeug==2.3.7
