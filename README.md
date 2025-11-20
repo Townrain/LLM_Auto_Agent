@@ -47,6 +47,7 @@ python run_agent.py
 - 💬 **对话管理**: 智能的上下文管理和对话状态维护
 - 🔄 **自动循环**: 支持多步推理和工具调用的自动化流程
 - ⚙️ **灵活配置**: 可配置的参数和环境设置
+- 🗄️ **可选数据库**: 支持 MySQL 数据库集成，提供长期记忆和个性化服务
 
 ## 🛠️ 系统架构
 
@@ -58,6 +59,11 @@ python run_agent.py
 - `Toolmanager.py` - 工具管理类
 - `agent_tools.py` - 工具函数集合
 - `run_agent.py` - 运行入口
+
+### 数据库组件（可选）
+
+- `database_tools.py` - 数据库管理类
+- `database_agent_tools.py` - 数据库工具函数集
 
 ### 工作流程
 
@@ -84,6 +90,12 @@ python run_agent.py
 ### Python 代码执行
 - `create_and_run_python_file()`: 创建 Python 文件并在指定 conda 环境中执行
 
+### 数据库工具（可选）
+- `search_database_context()`: 从数据库搜索相关上下文信息
+- `search_knowledge_base()`: 从知识库搜索相关信息
+- `log_conversation()`: 将对话记录保存到数据库
+- `get_user_conversation_history()`: 获取用户对话历史
+
 ## ⚙️ 配置说明
 
 ### AgentConfig 配置参数
@@ -101,11 +113,60 @@ refresh_prompt_interval = 3        # 提示词刷新间隔
 # 调试配置
 show_system_messages = False       # 是否显示系统消息
 conda = "New"                      # Conda 环境名称
+
+# 数据库配置（可选）
+enable_database = False            # 是否启用数据库功能，默认禁用
+database_config = {                # 数据库连接配置
+    'host': 'localhost',
+    'database': 'llm_agent',
+    'user': 'your_username',
+    'password': 'your_password',
+    'port': 3306
+}
 ```
+
+## 🗄️ 数据库功能（可选）
+
+数据库功能默认**禁用**，用户需要明确启用才能使用。
+
+### 启用数据库
+
+**方法一：配置文件**
+```python
+# 在 AgentConfig.py 中设置
+enable_database = True
+database_config = {
+    'host': 'localhost',
+    'database': 'llm_agent',
+    'user': 'your_username',
+    'password': 'your_password',
+    'port': 3306
+}
+```
+
+**方法二：环境变量**
+```bash
+export ENABLE_DATABASE=true
+export DB_HOST=localhost
+export DB_NAME=llm_agent
+export DB_USER=root
+export DB_PASSWORD=your_password
+export DB_PORT=3306
+```
+
+### 数据库特性
+
+- ✅ **智能上下文收集**: AI 在回答前自动从数据库获取相关上下文
+- ✅ **长期记忆**: 存储对话历史、用户偏好和知识库
+- ✅ **个性化服务**: 基于用户历史行为提供定制化回答
+- ✅ **知识管理**: 构建可搜索的知识库系统
+
+详细使用说明请参考 [DATABASE_INTEGRATION_GUIDE.md](DATABASE_INTEGRATION_GUIDE.md)
 
 ## 📖 详细文档
 
 - [设置指南](SETUP_GUIDE.md) - 详细的安装和配置说明
+- [数据库集成指南](DATABASE_INTEGRATION_GUIDE.md) - MySQL 数据库集成说明
 - [API 文档](https://platform.deepseek.com/api-docs/) - DeepSeek API 官方文档
 
 ## 🐛 问题反馈
