@@ -12,6 +12,7 @@ import agent_tools
 from Toolmanager import ToolManager
 from AgentConfig import AgentConfig
 from ConversationManager import ConversationManager
+from database_tools import create_database_tools
 
 
 class ReactAgent:
@@ -21,6 +22,15 @@ class ReactAgent:
         self.config = config or AgentConfig()
         self.conversation = ConversationManager(self.config)
         self.tool_manager = ToolManager()
+        
+        # 初始化数据库工具
+        self.db_tools = None
+        if self.config.database_config:
+            try:
+                self.db_tools = create_database_tools(self.config.database_config)
+                print("[系统] 数据库工具初始化成功")
+            except Exception as e:
+                print(f"[系统] 数据库工具初始化失败: {e}")
         
     def get_operating_system_name(self) -> str:
         """获取操作系统名称"""
@@ -34,10 +44,51 @@ class ReactAgent:
     def render_system_prompt(self) -> str:
         """渲染系统提示模板"""
         tool_list = self.tool_manager.get_tool_list()
+        
+        # 如果数据库工具可用，添加到工具列表
+        if self.db_tools:
+            tool_list += """
+- search_database_context: 从数据库搜索相关上下文信息，包括用户历史对话、个人资料和知识库
+- log_conversation: 将对话记录保存到数据库
+- search_knowledge_base: 从知识库搜索相关信息
+"""
+        
         return Template(react_system_prompt_template).substitute(
             operating_system=self.get_operating_system_name(),
             tool_list=tool_list,
         )
+
+    def collect_database_context(self, user_id: str, user_input: str) -> Dict[str, Any]:
+        """从数据库收集相关上下文信息"""
+        if not self.db_tools:
+            return {}
+        
+        try:
+            context = self.db_tools.get_context_for_query(user_id, user_input)
+            
+            # 构建上下文摘要
+            context_summary = []
+            
+            if context['user_profile']:
+                context_summary.append("用户个人资料可用")
+            
+            if context['recent_conversations']:
+                context_summary.append(f"找到 {len(context['recent_conversations'])} 条历史对话")
+            
+            if context['relevant_knowledge']:
+                context_summary.append(f"找到 {len(context['relevant_knowledge'])} 条相关知识")
+            
+            if context['similar_queries']:
+                context_summary.append(f"找到 {len(context['similar_queries'])} 条相似查询")
+            
+            if context_summary:
+                print(f"[系统] 数据库上下文: {', '.join(context_summary)}")
+            
+            return context
+            
+        except Exception as e:
+            print(f"[系统] 数据库上下文收集失败: {e}")
+            return {}
 
     def parse_ai_response(self, content: str) -> Dict[str, Any]:
         """解析AI响应内容，将字符串形式返回转化为json"""
@@ -170,8 +221,32 @@ class ReactAgent:
         
         # 初始用户输入
         user_input = self.get_user_input()
+        
+        # 从数据库收集上下文（如果可用）
+        user_id = "default_user"  # 在实际应用中应该从配置或输入中获取
+        db_context = self.collect_database_context(user_id, user_input)
+        
+        # 构建包含数据库上下文的系统提示
         system_prompt = self.render_system_prompt()
-        self.conversation.add_system_message(user_input, system_prompt)
+        
+        # 如果有数据库上下文，添加到用户输入中
+        if db_context:
+            context_info = "数据库上下文信息:\n"
+            
+            if db_context.get('user_profile'):
+                context_info += f"用户个人资料: {db_context['user_profile']}\n"
+            
+            if db_context.get('recent_conversations'):
+                context_info += f"最近对话: {len(db_context['recent_conversations'])} 条\n"
+            
+            if db_context.get('relevant_knowledge'):
+                context_info += f"相关知识: {len(db_context['relevant_knowledge'])} 条\n"
+            
+            enhanced_input = f"{user_input}\n\n[数据库上下文]\n{context_info}"
+        else:
+            enhanced_input = user_input
+        
+        self.conversation.add_system_message(enhanced_input, system_prompt)
         
         step_count = 0 # 步数，非final结果数，执行一次action算一次
         while step_count < self.config.max_steps:
@@ -186,14 +261,48 @@ class ReactAgent:
                         print(f"[系统] 达到 {self.config.refresh_prompt_interval} 轮交互，重新添加系统提示")
                         
                     user_input = self.get_user_input()
+                    
+                    # 再次收集数据库上下文
+                    db_context = self.collect_database_context(user_id, user_input)
                     system_prompt = self.render_system_prompt()
-                    self.conversation.refresh_context_with_prompt(user_input, system_prompt)
+                    
+                    # 增强用户输入
+                    if db_context:
+                        context_info = "数据库上下文信息:\n"
+                        if db_context.get('user_profile'):
+                            context_info += f"用户个人资料: {db_context['user_profile']}\n"
+                        if db_context.get('recent_conversations'):
+                            context_info += f"最近对话: {len(db_context['recent_conversations'])} 条\n"
+                        if db_context.get('relevant_knowledge'):
+                            context_info += f"相关知识: {len(db_context['relevant_knowledge'])} 条\n"
+                        enhanced_input = f"{user_input}\n\n[数据库上下文]\n{context_info}"
+                    else:
+                        enhanced_input = user_input
+                    
+                    self.conversation.refresh_context_with_prompt(enhanced_input, system_prompt)
                     
                     if self.config.show_system_messages:
                         print(f"[系统] 系统提示已刷新，当前 {len(self.conversation.messages)} 条上下文消息")
                 else:
                     user_input = self.get_user_input()
-                    self.conversation.add_message("user", f"question: {user_input}")
+                    
+                    # 收集数据库上下文
+                    db_context = self.collect_database_context(user_id, user_input)
+                    
+                    # 增强用户输入
+                    if db_context:
+                        context_info = "数据库上下文信息:\n"
+                        if db_context.get('user_profile'):
+                            context_info += f"用户个人资料: {db_context['user_profile']}\n"
+                        if db_context.get('recent_conversations'):
+                            context_info += f"最近对话: {len(db_context['recent_conversations'])} 条\n"
+                        if db_context.get('relevant_knowledge'):
+                            context_info += f"相关知识: {len(db_context['relevant_knowledge'])} 条\n"
+                        enhanced_input = f"{user_input}\n\n[数据库上下文]\n{context_info}"
+                    else:
+                        enhanced_input = user_input
+                    
+                    self.conversation.add_message("user", f"question: {enhanced_input}")
                     
                 step_count = 0  # 重置步骤计数
                 
