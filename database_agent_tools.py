@@ -14,11 +14,11 @@ def register_database_tools(tool_manager):
     try:
         from database_tools import create_database_tools
         
-        # 检查是否有数据库配置
+        # 检查是否有数据库配置和是否启用数据库
         from AgentConfig import AgentConfig
         config = AgentConfig()
         
-        if config.database_config:
+        if config.enable_database and config.database_config:
             global db_tools_instance
             db_tools_instance = create_database_tools(config.database_config)
             
@@ -30,7 +30,7 @@ def register_database_tools(tool_manager):
             
             print("[系统] 数据库工具注册成功")
         else:
-            print("[系统] 无数据库配置，跳过数据库工具注册")
+            print("[系统] 数据库功能已禁用或无数据库配置，跳过数据库工具注册")
             
     except ImportError:
         print("[系统] 数据库依赖未安装，跳过数据库工具注册")
