@@ -15,8 +15,9 @@ class ConversationManager:
         
     def add_message(self, role: str, content: str) -> None:
         """添加消息到对话历史"""
-        message = {"role": role, "parts": [{"text": content}]}
-        print(f"[对话管理] 添加消息: {role} - {content}")
+        message = {"role": role, "content": content}
+        if self.config.show_system_messages:
+            print(f"[对话管理] 添加消息: {role} - {content[:100]}...")
         self.messages.append(message)
         
     def add_system_message(self, user_question: str, system_prompt: str) -> None:
@@ -47,4 +48,3 @@ class ConversationManager:
         """刷新上下文并添加新的系统提示"""
         # self.manage_context() 调用上下文截断总结
         self.add_system_message(user_question, system_prompt)
-
