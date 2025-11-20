@@ -14,7 +14,7 @@
 
 ## 核心特性
 
-- 🤖 **智能推理**: 基于 Google Gemini 模型的智能对话和推理能力
+- 🤖 **智能推理**: 基于 DeepSeek 模型的智能对话和推理能力
 - 🔧 **多工具集成**: 支持文件操作、网页搜索、系统命令执行等多种工具
 - 💬 **对话管理**: 智能的上下文管理和对话状态维护
 - 🔄 **自动循环**: 支持多步推理和工具调用的自动化流程
@@ -51,19 +51,29 @@
 
 - Python 3.8+
 - Conda 环境管理器(python 相关指令会需要激活环境)
-- Google API Key
-- 需要科学上网
-
+- DeepSeek API Key
 
 ### 环境变量配置
 
 在系统环境变量中设置：
-谷歌API秘钥可在此申请https://aistudio.google.com/apikey
+DeepSeek API秘钥可在此申请 https://platform.deepseek.com/api_keys
 ```bash
-GOOGLE_API_KEY=your_google_api_key_here
+DEEPSEEK_API_KEY=your_deepseek_api_key_here
+```
+
+或者创建 `.env` 文件：
+```bash
+cp .env.example .env
+# 然后在 .env 文件中填入您的 DeepSeek API Key
 ```
 
 ## 快速开始
+
+### 安装依赖
+
+```bash
+pip install -r requirements.txt
+```
 
 ### 基础使用
 
@@ -72,13 +82,11 @@ conda activate yourenv
 python runagent.py
 ```
 
-
 ### 基础版测试
 
 ```bash
 python little_test.py
 ```
-
 
 ## 配置选项
 
@@ -86,15 +94,15 @@ python little_test.py
 
 ```python
 class AgentConfig:
-    api_key: str                    # Google API Key
-    model_name: str                 # 模型名称 (默认: "gemini-2.5-flash")
+    api_key: str                    # DeepSeek API Key
+    model_name: str                 # 模型名称 (默认: "deepseek-chat")
+    base_url: str                   # API 基础地址 (默认: "https://api.deepseek.com")
     max_steps: int                  # 最大推理步数 (默认: 10)
     refresh_prompt_interval: int    # 提示词刷新间隔 (默认: 3)
     project_directory: str          # 项目目录 (默认: "D:/")
     show_system_messages: bool      # 是否显示系统消息 (默认: False)
     conda: str                      # Conda 环境名称 (默认: "New")
 ```
-
 
 ## 高级功能
 
@@ -147,7 +155,7 @@ config.show_system_messages = True
 
 ## 注意事项
 
-1. 确保 Google API Key 已正确配置(对话时需要科学上网)
+1. 确保 DeepSeek API Key 已正确配置
 2. 某些工具需要网络连接
 3. 系统命令执行需要相应权限
 4. Conda 环境需要预先配置
@@ -169,7 +177,7 @@ config.show_system_messages = True
 本项目的实现受到以下项目和研究的启发：
 
 - 感谢项目教程 [MarkTechStation/VideoCode](https://github.com/MarkTechStation/VideoCode)
-- 感谢 Google Gemini API 提供的强大语言模型支持
+- 感谢 DeepSeek API 提供的强大语言模型支持
 
 
 如果您在使用本项目时发现任何问题或有改进建议，欢迎提交 Issue 或 Pull Request！
