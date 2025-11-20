@@ -12,7 +12,6 @@ import agent_tools
 from Toolmanager import ToolManager
 from AgentConfig import AgentConfig
 from ConversationManager import ConversationManager
-from database_tools import create_database_tools
 
 
 class ReactAgent:
@@ -23,12 +22,16 @@ class ReactAgent:
         self.conversation = ConversationManager(self.config)
         self.tool_manager = ToolManager()
         
-        # 初始化数据库工具
+        # 初始化数据库工具（可选）
         self.db_tools = None
         if self.config.database_config:
             try:
+                # 尝试导入数据库工具
+                from database_tools import create_database_tools
                 self.db_tools = create_database_tools(self.config.database_config)
                 print("[系统] 数据库工具初始化成功")
+            except ImportError:
+                print("[系统] 数据库依赖未安装，跳过数据库功能")
             except Exception as e:
                 print(f"[系统] 数据库工具初始化失败: {e}")
         
