@@ -17,9 +17,13 @@ def main():
     
     # 检查API Key
     if not config.api_key:
-        print("错误: 未找到 DeepSeek API Key")
-        print("请设置环境变量 DEEPSEEK_API_KEY 或创建 .env 文件")
-        print("参考 .env.example 文件进行配置")
+        print("❌ 错误: 未找到 DeepSeek API Key")
+        print("请按照以下步骤配置:")
+        print("1. 复制 .env.example 文件为 .env")
+        print("2. 在 .env 文件中设置您的 DeepSeek API Key:")
+        print("   DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+        print("3. 确保 .env 文件与 run_agent.py 在同一目录")
+        print("\n或者使用调试模式运行: python run_agent_debug.py")
         return
 
     # 创建并运行Agent
