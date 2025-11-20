@@ -27,9 +27,14 @@ class ToolManager:
         
         # 尝试注册数据库工具（可选）
         try:
-            from database_agent_tools import register_database_tools
-            register_database_tools(self)
-            print("[系统] 数据库工具注册成功")
+            from AgentConfig import AgentConfig
+            config = AgentConfig()
+            if config.enable_database:
+                from database_agent_tools import register_database_tools
+                register_database_tools(self)
+                print("[系统] 数据库工具注册成功")
+            else:
+                print("[系统] 数据库功能已禁用，跳过数据库工具注册")
         except ImportError:
             print("[系统] 数据库工具模块未找到，跳过数据库工具注册")
         except Exception as e:
@@ -130,7 +135,7 @@ class ToolManager:
         
         for tool_name, params in parsed_actions:
             try:
-                result = self.execute_tool(tool_name, params)
+                result = self.tools[func_name](**params)
                 results.append(result)
             except Exception as e:
                 # 记录错误但继续执行其他工具
