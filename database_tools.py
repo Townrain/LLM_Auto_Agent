@@ -3,13 +3,22 @@ MySQL Database Tools for LLM Auto Agent
 Provides database query and management capabilities
 """
 
-import mysql.connector
-from mysql.connector import Error
 import json
 from typing import List, Dict, Any, Optional
 import logging
 
 logger = logging.getLogger(__name__)
+
+# 尝试导入数据库依赖，如果失败则提供降级方案
+try:
+    import mysql.connector
+    from mysql.connector import Error
+    DATABASE_AVAILABLE = True
+except ImportError:
+    mysql = None
+    Error = None
+    DATABASE_AVAILABLE = False
+    logger.warning("mysql-connector-python not installed, database features will be disabled")
 
 class DatabaseManager:
     """MySQL database management class"""
@@ -21,6 +30,9 @@ class DatabaseManager:
         Args:
             config: Database configuration dictionary
         """
+        if not DATABASE_AVAILABLE:
+            raise ImportError("mysql-connector-python is not installed. Please install it to use database features.")
+        
         self.config = config
         self.connection = None
         self.connect()
@@ -76,6 +88,9 @@ class DatabaseTools:
         Args:
             db_config: Database configuration
         """
+        if not DATABASE_AVAILABLE:
+            raise ImportError("mysql-connector-python is not installed. Please install it to use database features.")
+        
         self.db_manager = DatabaseManager(db_config)
         self.initialize_tables()
     
