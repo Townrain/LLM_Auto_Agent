@@ -24,7 +24,7 @@ class ReactAgent:
         
         # 初始化数据库工具（可选）
         self.db_tools = None
-        if self.config.database_config:
+        if self.config.enable_database and self.config.database_config:
             try:
                 # 尝试导入数据库工具
                 from database_tools import create_database_tools
@@ -34,6 +34,8 @@ class ReactAgent:
                 print("[系统] 数据库依赖未安装，跳过数据库功能")
             except Exception as e:
                 print(f"[系统] 数据库工具初始化失败: {e}")
+        else:
+            print("[系统] 数据库功能已禁用")
         
     def get_operating_system_name(self) -> str:
         """获取操作系统名称"""
