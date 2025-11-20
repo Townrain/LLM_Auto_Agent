@@ -4,21 +4,38 @@ Provides database query and management capabilities as agent tools
 """
 
 from typing import Dict, Any, List, Optional
-from database_tools import create_database_tools
 import json
 
 # Global database tools instance
 db_tools_instance = None
 
-def initialize_database_tools(config: Dict[str, Any]) -> bool:
-    """Initialize database tools with configuration"""
-    global db_tools_instance
+def register_database_tools(tool_manager):
+    """Register database tools with tool manager"""
     try:
-        db_tools_instance = create_database_tools(config)
-        return True
+        from database_tools import create_database_tools
+        
+        # 检查是否有数据库配置
+        from AgentConfig import AgentConfig
+        config = AgentConfig()
+        
+        if config.database_config:
+            global db_tools_instance
+            db_tools_instance = create_database_tools(config.database_config)
+            
+            # 注册工具函数
+            tool_manager.register_tool("search_database_context", search_database_context)
+            tool_manager.register_tool("search_knowledge_base", search_knowledge_base)
+            tool_manager.register_tool("log_conversation", log_conversation)
+            tool_manager.register_tool("get_user_conversation_history", get_user_conversation_history)
+            
+            print("[系统] 数据库工具注册成功")
+        else:
+            print("[系统] 无数据库配置，跳过数据库工具注册")
+            
+    except ImportError:
+        print("[系统] 数据库依赖未安装，跳过数据库工具注册")
     except Exception as e:
-        print(f"Database tools initialization failed: {e}")
-        return False
+        print(f"[系统] 数据库工具注册失败: {e}")
 
 def search_database_context(user_id: str, query: str) -> Dict[str, Any]:
     """
