@@ -1,3 +1,4 @@
-requests>=2.25.1
-python-dotenv>=0.19.0
-# 注意：移除了 google-genai 依赖，因为现在使用 DeepSeek API
+requests>=2.25.0
+python-dotenv>=1.0.0
+beautifulsoup4>=4.9.0
+lxml>=4.6.0
