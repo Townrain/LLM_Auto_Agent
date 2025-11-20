@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Auto Agent - 智能助手</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- 侧边栏 -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-robot"></i> LLM Auto Agent</h2>
+                <button class="btn-new-chat" id="newChatBtn">
+                    <i class="fas fa-plus"></i> 新对话
+                </button>
+            </div>
+            
+            <div class="conversation-list" id="conversationList">
+                <!-- 对话列表将通过JavaScript动态加载 -->
+            </div>
+            
+            <div class="sidebar-footer">
+                <button class="btn-settings" id="settingsBtn">
+                    <i class="fas fa-cog"></i> 设置
+                </button>
+            </div>
+        </div>
+
+        <!-- 主内容区域 -->
+        <div class="main-content">
+            <!-- 顶部导航 -->
+            <div class="top-nav">
+                <button class="btn-menu" id="menuBtn">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1>LLM Auto Agent</h1>
+                <div class="nav-actions">
+                    <button class="btn-action" id="importBtn" title="导入知识库">
+                        <i class="fas fa-upload"></i>
+                    </button>
+                    <button class="btn-action" id="historyBtn" title="历史记录">
+                        <i class="fas fa-history"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 聊天区域 -->
+            <div class="chat-container">
+                <div class="chat-messages" id="chatMessages">
+                    <!-- 欢迎消息 -->
+                    <div class="message welcome-message">
+                        <div class="message-content">
+                            <h3>欢迎使用 LLM Auto Agent!</h3>
+                            <p>我是一个基于 ReAct 模式的智能助手，可以帮您：</p>
+                            <ul>
+                                <li>📝 文件操作和编辑</li>
+                                <li>🔍 网页搜索和信息获取</li>
+                                <li>💻 代码执行和系统命令</li>
+                                <li>🗄️ 数据库查询和管理</li>
+                                <li>📚 知识库管理和检索</li>
+                            </ul>
+                            <p>请先配置您的 API Key 来开始使用。</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 输入区域 -->
+                <div class="input-container">
+                    <div class="input-wrapper">
+                        <textarea 
+                            id="messageInput" 
+                            placeholder="输入您的问题... (Shift+Enter 换行，Enter 发送)"
+                            rows="1"
+                            disabled
+                        ></textarea>
+                        <button id="sendBtn" class="btn-send" disabled>
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 设置模态框 -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>系统设置</h3>
+                <button class="btn-close" id="closeSettings">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="settingsForm">
+                    <div class="form-group">
+                        <label for="apiKey">DeepSeek API Key *</label>
+                        <input type="password" id="apiKey" placeholder="输入您的 DeepSeek API Key" required>
+                        <small>获取地址: <a href="https://platform.deepseek.com/" target="_blank">DeepSeek Platform</a></small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="useDatabase">
+                            <span class="checkmark"></span>
+                            启用数据库功能
+                        </label>
+                        <small>启用后可以保存对话历史和个人化数据</small>
+                    </div>
+
+                    <div class="database-settings" id="databaseSettings" style="display: none;">
+                        <div class="form-group">
+                            <label for="dbHost">数据库主机</label>
+                            <input type="text" id="dbHost" placeholder="localhost" value="localhost">
+                        </div>
+                        <div class="form-group">
+                            <label for="dbPort">端口</label>
+                            <input type="number" id="dbPort" placeholder="3306" value="3306">
+                        </div>
+                        <div class="form-group">
+                            <label for="dbUser">用户名</label>
+                            <input type="text" id="dbUser" placeholder="root">
+                        </div>
+                        <div class="form-group">
+                            <label for="dbPassword">密码</label>
+                            <input type="password" id="dbPassword" placeholder="数据库密码">
+                        </div>
+                        <div class="form-group">
+                            <label for="dbName">数据库名</label>
+                            <input type="text" id="dbName" placeholder="llm_agent" value="llm_agent">
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" id="cancelSettings">取消</button>
+                        <button type="submit" class="btn-primary">保存设置</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 命令确认模态框 -->
+    <div class="modal" id="commandModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>系统命令确认</h3>
+            </div>
+            <div class="modal-body">
+                <p id="commandText"></p>
+                <div class="warning-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>警告：执行系统命令可能存在风险，请确认您了解该命令的作用。</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="cancelCommand">取消</button>
+                <button class="btn-danger" id="confirmCommand">确认执行</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导入模态框 -->
+    <div class="modal" id="importModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>导入知识库</h3>
+                <button class="btn-close" id="closeImport">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="importForm" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="knowledgeFile">选择文件</label>
+                        <input type="file" id="knowledgeFile" accept=".txt,.pdf,.doc,.docx,.md">
+                        <small>支持格式: TXT, PDF, DOC, DOCX, Markdown</small>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" id="cancelImport">取消</button>
+                        <button type="submit" class="btn-primary">导入</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加载指示器 -->
+    <div class="loading" id="loading" style="display: none;">
+        <div class="loading-spinner"></div>
+        <p>AI正在思考中...</p>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
