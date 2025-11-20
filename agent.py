@@ -3,10 +3,10 @@
 import json
 import os
 import platform
+import requests
 
 from string import Template
 from typing import List, Dict, Any, Optional
-from google import genai
 from prompt_template import react_system_prompt_template
 import agent_tools
 from Toolmanager import ToolManager
@@ -19,7 +19,6 @@ class ReactAgent:
     
     def __init__(self, config: Optional[AgentConfig] = None):
         self.config = config or AgentConfig()
-        self.client = genai.Client(api_key=self.config.api_key)
         self.conversation = ConversationManager(self.config)
         self.tool_manager = ToolManager()
         
@@ -96,16 +95,42 @@ class ReactAgent:
         """获取用户输入"""
         return input(prompt)
         
+    def call_deepseek_api(self, messages: List[Dict[str, str]]) -> str:
+        """调用 DeepSeek API"""
+        headers = {
+            "Authorization": f"Bearer {self.config.api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "model": self.config.model_name,
+            "messages": messages,
+            "stream": False
+        }
+        
+        try:
+            response = requests.post(
+                f"{self.config.base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=60
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result["choices"][0]["message"]["content"]
+            else:
+                raise Exception(f"API调用失败: {response.status_code} - {response.text}")
+                
+        except Exception as e:
+            raise Exception(f"DeepSeek API调用错误: {str(e)}")
+        
     def process_turn(self) -> bool:
         """处理一轮对话，返回是否继续"""
         try:
-            # 调用AI模型
-            response = self.client.models.generate_content(
-                model=self.config.model_name,
-                contents=self.conversation.messages
-            )
-            content = response.text
-            self.conversation.add_message("model", content)
+            # 调用 DeepSeek API
+            content = self.call_deepseek_api(self.conversation.messages)
+            self.conversation.add_message("assistant", content)
             
             if self.config.show_system_messages:
                 print("[系统]模型完整回复:", content)
