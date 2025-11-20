@@ -24,6 +24,16 @@ class ToolManager:
                 hasattr(attr, '__module__') and 
                 attr.__module__ == "agent_tools"):
                 self.tools[attr_name] = attr
+        
+        # 尝试注册数据库工具（可选）
+        try:
+            from database_agent_tools import register_database_tools
+            register_database_tools(self)
+            print("[系统] 数据库工具注册成功")
+        except ImportError:
+            print("[系统] 数据库工具模块未找到，跳过数据库工具注册")
+        except Exception as e:
+            print(f"[系统] 数据库工具注册失败: {e}")
 
     def parse_action_list(self, action_list: List[Dict[str, Any]]) -> List[Tuple[str, Dict[str, Any]]]:
         """
