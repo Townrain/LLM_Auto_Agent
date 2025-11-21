@@ -1,7 +1,11 @@
 import subprocess
+import os
 from typing import List, Dict, Any, Optional
 
 
+def is_web_environment() -> bool:
+    """检测是否在Web环境中运行"""
+    return 'FLASK_RUN_FROM_CLI' in os.environ or 'WERKZEUG_RUN_MAIN' in os.environ
 
 # 简单地读取文件
 def read_file(file_path: str) -> str:
@@ -46,10 +50,19 @@ def run_terminal_command(command: str, level: str = "dangerous") -> Dict[str, An
     Returns:
         dict: 包含执行结果的字典，根据执行状态返回不同格式
     """
-    if level == "dangerous":
+    # 在Web环境中自动拒绝危险命令
+    if is_web_environment() and level == "dangerous":
+        dangerous_commands = ['rm ', 'del ', 'format ', 'shutdown', 'reboot', 'sudo', 'su']
+        if any(dangerous in command.lower() for dangerous in dangerous_commands):
+            return {"status": "aborted", "message": "在Web环境中，出于安全考虑，无法执行此命令"}
+        # 在Web环境中，对于非危险命令，自动确认
+        confirm = "y"
+    elif level == "dangerous":
         confirm = input(f"警告：即将执行系统命令 '{command}'，请确认是否继续 (y/n): ").strip().lower()
         if confirm != "y":
             return {"status": "aborted", "message": "用户取消执行"}
+    else:
+        confirm = "y"
 
     try:
         result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True,encoding='utf-8',errors='replace',)
@@ -370,4 +383,3 @@ def create_and_run_python_file(file_path: str, file_name: str, code: str, conda_
             "file_path": full_file_path if 'full_file_path' in locals() else None,
             **cleanup_result
         }
-
