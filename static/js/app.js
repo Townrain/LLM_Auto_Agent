@@ -1,632 +1,449 @@
-// LLM Auto Agent Web界面JavaScript
+// LLM Auto Agent Web 界面 JavaScript
 
-class LLMAutoAgentApp {
+class LLMAgentApp {
     constructor() {
-        this.currentChatId = null;
-        this.chats = this.loadChats();
-        this.isProcessing = false;
+        this.currentSession = 'default';
+        this.chats = JSON.parse(localStorage.getItem('llm_agent_chats')) || [
+            { id: 'default', title: '新对话', timestamp: new Date().toISOString() }
+        ];
+        this.settings = JSON.parse(localStorage.getItem('llm_agent_settings')) || {
+            apiKey: '',
+            useDatabase: false,
+            database: {
+                host: 'localhost',
+                port: 3306,
+                user: 'root',
+                password: '',
+                name: 'llm_agent'
+            }
+        };
         
-        this.initializeEventListeners();
-        this.renderChatHistory();
-        this.checkAgentStatus();
+        this.init();
     }
 
-    // 初始化事件监听器
-    initializeEventListeners() {
+    init() {
+        this.bindEvents();
+        this.loadChatHistory();
+        this.updateUI();
+    }
+
+    bindEvents() {
         // 发送消息
-        const messageInput = document.getElementById('messageInput');
-        const sendBtn = document.getElementById('sendBtn');
-        
-        messageInput.addEventListener('keydown', (e) => {
+        document.getElementById('send-btn').addEventListener('click', () => this.sendMessage());
+        document.getElementById('user-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 this.sendMessage();
             }
         });
-        
-        sendBtn.addEventListener('click', () => {
-            this.sendMessage();
-        });
 
-        // 自动调整输入框高度
-        messageInput.addEventListener('input', () => {
-            this.autoResizeTextarea(messageInput);
-        });
-
-        // 模态框控制
-        this.initializeModals();
-        
-        // 新对话按钮
-        document.getElementById('newChatBtn').addEventListener('click', () => {
-            this.createNewChat();
-        });
+        // 新对话
+        document.getElementById('new-chat-btn').addEventListener('click', () => this.createNewChat());
 
         // 设置按钮
-        document.getElementById('settingsBtn').addEventListener('click', () => {
-            this.showSettingsModal();
-        });
+        document.getElementById('settings-btn').addEventListener('click', () => this.showSettings());
 
         // 导入按钮
-        document.getElementById('importBtn').addEventListener('click', () => {
-            this.showImportModal();
+        document.getElementById('import-btn').addEventListener('click', () => this.showImportModal());
+
+        // 模态框关闭
+        document.querySelectorAll('.modal .close').forEach(closeBtn => {
+            closeBtn.addEventListener('click', () => this.hideAllModals());
         });
 
-        // 数据库设置切换
-        document.getElementById('useDatabase').addEventListener('change', (e) => {
-            this.toggleDatabaseSettings(e.target.checked);
-        });
-    }
+        // 设置保存
+        document.getElementById('save-settings').addEventListener('click', () => this.saveSettings());
 
-    // 初始化模态框
-    initializeModals() {
-        // 设置模态框
-        const settingsModal = document.getElementById('settingsModal');
-        const settingsForm = document.getElementById('settingsForm');
-        
-        document.getElementById('closeSettings').addEventListener('click', () => {
-            settingsModal.style.display = 'none';
-        });
-        
-        document.getElementById('cancelSettings').addEventListener('click', () => {
-            settingsModal.style.display = 'none';
-        });
-        
-        settingsForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.saveSettings();
-        });
+        // 文件上传
+        document.getElementById('upload-file').addEventListener('change', (e) => this.handleFileUpload(e));
 
-        // 导入模态框
-        const importModal = document.getElementById('importModal');
-        const fileInput = document.getElementById('fileInput');
-        const uploadArea = document.getElementById('uploadArea');
-        
-        document.getElementById('closeImport').addEventListener('click', () => {
-            importModal.style.display = 'none';
-        });
-        
-        document.getElementById('cancelImport').addEventListener('click', () => {
-            importModal.style.display = 'none';
-        });
-        
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                this.uploadKnowledgeFile(e.target.files[0]);
-            }
-        });
-
-        // 拖放上传
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('dragover');
-        });
-        
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragover');
-        });
-        
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-            if (e.dataTransfer.files.length > 0) {
-                this.uploadKnowledgeFile(e.dataTransfer.files[0]);
-            }
-        });
-
-        // 命令确认模态框
-        const commandModal = document.getElementById('commandModal');
-        
-        document.getElementById('closeCommand').addEventListener('click', () => {
-            commandModal.style.display = 'none';
-        });
-        
-        document.getElementById('cancelCommand').addEventListener('click', () => {
-            commandModal.style.display = 'none';
-        });
-        
-        document.getElementById('confirmCommand').addEventListener('click', () => {
-            this.confirmCommandExecution();
+        // 数据库开关
+        document.getElementById('use-database').addEventListener('change', (e) => {
+            document.getElementById('database-settings').style.display = e.target.checked ? 'block' : 'none';
         });
 
         // 点击模态框外部关闭
         window.addEventListener('click', (e) => {
-            if (e.target === settingsModal) {
-                settingsModal.style.display = 'none';
-            }
-            if (e.target === importModal) {
-                importModal.style.display = 'none';
-            }
-            if (e.target === commandModal) {
-                commandModal.style.display = 'none';
+            if (e.target.classList.contains('modal')) {
+                this.hideAllModals();
             }
         });
     }
 
-    // 自动调整文本区域高度
-    autoResizeTextarea(textarea) {
-        textarea.style.height = 'auto';
-        textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
-    }
-
-    // 发送消息
-    async sendMessage() {
-        const messageInput = document.getElementById('messageInput');
-        const message = messageInput.value.trim();
+    sendMessage() {
+        const input = document.getElementById('user-input');
+        const message = input.value.trim();
         
-        if (!message || this.isProcessing) {
-            return;
-        }
+        if (!message) return;
 
-        // 检查Agent是否初始化
-        const status = await this.checkAgentStatus();
-        if (!status.initialized) {
-            this.showError('请先配置API Key');
-            this.showSettingsModal();
-            return;
-        }
-
-        this.isProcessing = true;
-        messageInput.value = '';
-        this.autoResizeTextarea(messageInput);
-        
-        // 添加用户消息
+        // 添加用户消息到界面
         this.addMessage('user', message);
         
-        // 显示加载指示器
-        this.showLoading(true);
+        // 清空输入框
+        input.value = '';
         
-        try {
-            const response = await fetch('/api/chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ 
-                    message: message,
-                    conversation_id: this.currentChatId 
-                })
-            });
+        // 显示加载状态
+        const loadingId = this.showLoading();
+
+        // 发送到后端
+        fetch('/api/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                message: message,
+                session_id: this.currentSession
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            this.hideLoading(loadingId);
             
-            const result = await response.json();
-            
-            if (result.success) {
-                // 处理AI的响应
-                this.handleAIResponse(result.result);
+            if (data.success) {
+                // 显示 AI 回复
+                this.addMessage('assistant', data.response);
+                
+                // 更新对话标题（如果是第一条消息）
+                this.updateChatTitle(message);
             } else {
-                this.showError(result.message || '发送消息失败');
-                this.addMessage('assistant', `抱歉，处理您的请求时出现了问题：${result.message}`);
+                this.showError(data.error || '处理消息时出错');
             }
-        } catch (error) {
+        })
+        .catch(error => {
+            this.hideLoading(loadingId);
             this.showError('网络错误: ' + error.message);
-            this.addMessage('assistant', '抱歉，网络连接出现问题，请稍后重试。');
-        } finally {
-            this.isProcessing = false;
-            this.showLoading(false);
-        }
+        });
     }
 
-    // 处理AI响应
-    handleAIResponse(result) {
-        if (!result) {
-            this.addMessage('assistant', '抱歉，没有收到有效的响应。');
-            return;
-        }
-
-        // 根据响应类型处理
-        if (typeof result === 'string') {
-            this.addMessage('assistant', result);
-        } else if (result.response) {
-            // 显示最终回答
-            this.addMessage('assistant', result.response);
-            
-            // 如果有思考过程，可以显示
-            if (result.thoughts) {
-                this.addMessage('system', `思考过程：${result.thoughts}`);
-            }
-            
-            // 如果有工具调用结果
-            if (result.tool_results) {
-                result.tool_results.forEach(toolResult => {
-                    this.addMessage('system', `工具执行：${toolResult}`);
-                });
-            }
-        } else if (result.final_answer) {
-            this.addMessage('assistant', result.final_answer);
-        } else {
-            // 尝试显示任何可用的文本内容
-            const textResponse = JSON.stringify(result, null, 2);
-            this.addMessage('assistant', textResponse);
-        }
-    }
-
-    // 添加消息到聊天界面
-    addMessage(type, content) {
-        const chatMessages = document.getElementById('chatMessages');
+    addMessage(role, content) {
+        const chatContainer = document.getElementById('chat-container');
         const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${type}-message`;
+        messageDiv.className = `message ${role}-message`;
         
-        const avatar = type === 'user' ? '👤' : (type === 'system' ? '⚙️' : '🤖');
+        const avatar = role === 'user' ? '👤' : '🤖';
+        const messageClass = role === 'user' ? 'user-message-content' : 'assistant-message-content';
         
         messageDiv.innerHTML = `
             <div class="message-avatar">${avatar}</div>
-            <div class="message-content">${this.formatMessage(content)}</div>
+            <div class="${messageClass}">${this.formatMessage(content)}</div>
         `;
         
-        chatMessages.appendChild(messageDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+        chatContainer.appendChild(messageDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
         
-        // 保存到当前对话
-        if (this.currentChatId) {
-            const chat = this.chats.find(c => c.id === this.currentChatId);
-            if (chat) {
-                chat.messages.push({ type, content, timestamp: new Date().toISOString() });
-                this.saveChats();
-            }
-        }
+        // 保存到本地存储
+        this.saveMessageToHistory(role, content);
     }
 
-    // 格式化消息内容
     formatMessage(content) {
-        if (typeof content !== 'string') {
-            content = String(content);
-        }
+        // 简单的 Markdown 格式化
+        let formatted = content
+            .replace(/\\n/g, '<br>')
+            .replace(/\\`\\`\\`([\\s\\S]*?)\\`\\`\\`/g, '<pre><code>$1</code></pre>')
+            .replace(/\\`([^`]+)\\`/g, '<code>$1</code>')
+            .replace(/\\*\\*([^*]+)\\*\\*/g, '<strong>$1</strong>')
+            .replace(/\\*([^*]+)\\*/g, '<em>$1</em>');
         
-        // 简单的Markdown格式化
-        return content
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\*(.*?)\*/g, '<em>$1</em>')
-            .replace(/`(.*?)`/g, '<code>$1</code>')
-            .replace(/\n/g, '<br>');
+        return formatted;
     }
 
-    // 显示设置模态框
-    showSettingsModal() {
-        const modal = document.getElementById('settingsModal');
-        modal.style.display = 'block';
+    showLoading() {
+        const chatContainer = document.getElementById('chat-container');
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'message assistant-message';
+        loadingDiv.id = 'loading-message';
         
-        // 加载当前设置
-        this.loadCurrentSettings();
+        loadingDiv.innerHTML = `
+            <div class="message-avatar">🤖</div>
+            <div class="assistant-message-content">
+                <div class="loading-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+        `;
+        
+        chatContainer.appendChild(loadingDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+        
+        return 'loading-message';
     }
 
-    // 加载当前设置
-    loadCurrentSettings() {
-        // 这里可以从localStorage加载保存的设置
-        const savedSettings = localStorage.getItem('llm_agent_settings');
-        if (savedSettings) {
-            const settings = JSON.parse(savedSettings);
-            document.getElementById('apiKey').value = settings.apiKey || '';
-            document.getElementById('useDatabase').checked = settings.useDatabase || false;
-            
-            if (settings.dbConfig) {
-                document.getElementById('dbHost').value = settings.dbConfig.host || 'localhost';
-                document.getElementById('dbPort').value = settings.dbConfig.port || 3306;
-                document.getElementById('dbUser').value = settings.dbConfig.user || 'root';
-                document.getElementById('dbPassword').value = settings.dbConfig.password || '';
-                document.getElementById('dbName').value = settings.dbConfig.database || 'llm_agent';
-            }
-            
-            this.toggleDatabaseSettings(settings.useDatabase || false);
-        }
-    }
-
-    // 保存设置
-    async saveSettings() {
-        const apiKey = document.getElementById('apiKey').value.trim();
-        const useDatabase = document.getElementById('useDatabase').checked;
-        
-        if (!apiKey) {
-            this.showError('请输入API Key');
-            return;
-        }
-
-        const dbConfig = useDatabase ? {
-            host: document.getElementById('dbHost').value,
-            port: parseInt(document.getElementById('dbPort').value),
-            user: document.getElementById('dbUser').value,
-            password: document.getElementById('dbPassword').value,
-            database: document.getElementById('dbName').value
-        } : {};
-
-        try {
-            const response = await fetch('/api/initialize', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    api_key: apiKey,
-                    use_database: useDatabase,
-                    db_config: dbConfig
-                })
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                // 保存设置到localStorage
-                const settings = { apiKey, useDatabase, dbConfig };
-                localStorage.setItem('llm_agent_settings', JSON.stringify(settings));
-                
-                this.showSuccess('设置保存成功');
-                document.getElementById('settingsModal').style.display = 'none';
-            } else {
-                this.showError(result.message || '初始化失败');
-            }
-        } catch (error) {
-            this.showError('保存设置失败: ' + error.message);
+    hideLoading(loadingId) {
+        const loadingElement = document.getElementById(loadingId);
+        if (loadingElement) {
+            loadingElement.remove();
         }
     }
 
-    // 切换数据库设置显示
-    toggleDatabaseSettings(show) {
-        const dbSettings = document.getElementById('databaseSettings');
-        dbSettings.style.display = show ? 'block' : 'none';
+    showError(message) {
+        const chatContainer = document.getElementById('chat-container');
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'message system-message';
+        
+        errorDiv.innerHTML = `
+            <div class="message-avatar">⚠️</div>
+            <div class="system-message-content">
+                <strong>错误:</strong> ${message}
+            </div>
+        `;
+        
+        chatContainer.appendChild(errorDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
-    // 显示导入模态框
-    showImportModal() {
-        const modal = document.getElementById('importModal');
-        modal.style.display = 'block';
-    }
-
-    // 上传知识库文件
-    async uploadKnowledgeFile(file) {
-        const formData = new FormData();
-        formData.append('file', file);
-        
-        const uploadProgress = document.getElementById('uploadProgress');
-        const uploadArea = document.getElementById('uploadArea');
-        
-        uploadArea.style.display = 'none';
-        uploadProgress.style.display = 'block';
-        
-        try {
-            const response = await fetch('/api/upload', {
-                method: 'POST',
-                body: formData
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                this.showSuccess(result.message);
-                document.getElementById('importModal').style.display = 'none';
-            } else {
-                this.showError(result.message || '上传失败');
-            }
-        } catch (error) {
-            this.showError('上传失败: ' + error.message);
-        } finally {
-            uploadArea.style.display = 'block';
-            uploadProgress.style.display = 'none';
-        }
-    }
-
-    // 显示命令确认模态框
-    showCommandConfirmation(command) {
-        const modal = document.getElementById('commandModal');
-        const commandDisplay = document.getElementById('commandDisplay');
-        
-        commandDisplay.textContent = command;
-        modal.style.display = 'block';
-        
-        // 存储当前命令用于确认
-        this.pendingCommand = command;
-    }
-
-    // 确认命令执行
-    async confirmCommandExecution() {
-        if (!this.pendingCommand) return;
-        
-        try {
-            const response = await fetch('/api/confirm_command', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    command: this.pendingCommand,
-                    confirmed: true
-                })
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                this.showSuccess(result.message);
-            } else {
-                this.showError(result.message || '命令执行失败');
-            }
-        } catch (error) {
-            this.showError('命令执行失败: ' + error.message);
-        } finally {
-            document.getElementById('commandModal').style.display = 'none';
-            this.pendingCommand = null;
-        }
-    }
-
-    // 创建新对话
     createNewChat() {
         const chatId = 'chat_' + Date.now();
         const newChat = {
             id: chatId,
             title: '新对话',
-            messages: [],
-            createdAt: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            messages: []
         };
         
         this.chats.unshift(newChat);
-        this.currentChatId = chatId;
+        this.currentSession = chatId;
+        
         this.saveChats();
-        this.renderChatHistory();
-        this.clearChatMessages();
+        this.loadChatHistory();
+        this.clearChatContainer();
         
-        // 添加欢迎消息
-        this.addMessage('system', '开始新的对话。您可以向我提问或请求帮助处理各种任务。');
+        // 更新当前对话标题
+        document.querySelector('.current-chat-title').textContent = '新对话';
     }
 
-    // 删除对话
-    deleteChat(chatId, event) {
-        event.stopPropagation(); // 阻止事件冒泡
+    loadChatHistory() {
+        const chatList = document.getElementById('chat-list');
+        chatList.innerHTML = '';
         
-        if (this.chats.length <= 1) {
-            this.showError('至少需要保留一个对话');
-            return;
-        }
-        
-        if (confirm('确定要删除这个对话吗？此操作无法撤销。')) {
-            // 删除对话
-            this.chats = this.chats.filter(chat => chat.id !== chatId);
-            
-            // 如果删除的是当前对话，切换到第一个对话
-            if (this.currentChatId === chatId) {
-                this.currentChatId = this.chats[0]?.id || null;
-                this.switchToChat(this.currentChatId);
-            }
-            
-            this.saveChats();
-            this.renderChatHistory();
-            this.showSuccess('对话已删除');
-        }
-    }
-
-    // 清空所有对话
-    clearAllChats() {
-        if (confirm('确定要清空所有对话吗？此操作无法撤销。')) {
-            this.chats = [{
-                id: 'default_chat',
-                title: '默认对话',
-                messages: [],
-                createdAt: new Date().toISOString()
-            }];
-            this.currentChatId = 'default_chat';
-            this.saveChats();
-            this.renderChatHistory();
-            this.clearChatMessages();
-            this.showSuccess('所有对话已清空');
-        }
-    }
-
-    // 清空聊天消息
-    clearChatMessages() {
-        const chatMessages = document.getElementById('chatMessages');
-        chatMessages.innerHTML = '';
-    }
-
-    // 渲染对话历史
-    renderChatHistory() {
-        const chatHistory = document.getElementById('chatHistory');
-        chatHistory.innerHTML = '';
-        
-        // 添加清空所有按钮
-        if (this.chats.length > 1) {
-            const clearAllBtn = document.createElement('div');
-            clearAllBtn.className = 'chat-item clear-all';
-            clearAllBtn.innerHTML = '🗑️ 清空所有对话';
-            clearAllBtn.addEventListener('click', () => {
-                this.clearAllChats();
-            });
-            chatHistory.appendChild(clearAllBtn);
-        }
+        // 添加清空所有对话按钮
+        const clearAllItem = document.createElement('div');
+        clearAllItem.className = 'chat-item clear-all';
+        clearAllItem.innerHTML = `
+            <span class="chat-icon">🗑️</span>
+            <span class="chat-title">清空所有对话</span>
+        `;
+        clearAllItem.addEventListener('click', () => this.clearAllChats());
+        chatList.appendChild(clearAllItem);
         
         this.chats.forEach(chat => {
             const chatItem = document.createElement('div');
-            chatItem.className = `chat-item ${chat.id === this.currentChatId ? 'active' : ''}`;
-            
-            // 创建对话标题和删除按钮
+            chatItem.className = `chat-item ${chat.id === this.currentSession ? 'active' : ''}`;
             chatItem.innerHTML = `
-                <div class="chat-item-content">
-                    <span class="chat-title">${chat.title}</span>
-                    <button class="delete-chat-btn" onclick="app.deleteChat('${chat.id}', event)">🗑️</button>
-                </div>
+                <span class="chat-title">${chat.title}</span>
+                <button class="delete-chat-btn" onclick="app.deleteChat('${chat.id}')">🗑️</button>
             `;
             
             chatItem.addEventListener('click', (e) => {
-                // 如果点击的是删除按钮，不切换对话
                 if (!e.target.classList.contains('delete-chat-btn')) {
-                    this.switchToChat(chat.id);
+                    this.switchChat(chat.id);
                 }
             });
-            chatHistory.appendChild(chatItem);
+            
+            chatList.appendChild(chatItem);
         });
     }
 
-    // 切换到指定对话
-    switchToChat(chatId) {
-        this.currentChatId = chatId;
+    switchChat(chatId) {
+        this.currentSession = chatId;
+        this.loadChatHistory();
+        this.clearChatContainer();
+        
+        // 加载对话消息
         const chat = this.chats.find(c => c.id === chatId);
-        
-        if (chat) {
-            this.clearChatMessages();
+        if (chat && chat.messages) {
             chat.messages.forEach(msg => {
-                this.addMessage(msg.type, msg.content);
+                this.addMessage(msg.role, msg.content);
             });
-            this.renderChatHistory();
-        }
-    }
-
-    // 加载对话历史
-    loadChats() {
-        const saved = localStorage.getItem('llm_agent_chats');
-        if (saved) {
-            return JSON.parse(saved);
         }
         
-        // 默认创建一个对话
-        return [{
-            id: 'default_chat',
-            title: '默认对话',
-            messages: [],
-            createdAt: new Date().toISOString()
-        }];
+        // 更新当前对话标题
+        document.querySelector('.current-chat-title').textContent = chat.title;
     }
 
-    // 保存对话历史
+    deleteChat(chatId) {
+        if (this.chats.length <= 1) {
+            alert('至少需要保留一个对话');
+            return;
+        }
+        
+        if (confirm('确定要删除这个对话吗？')) {
+            this.chats = this.chats.filter(chat => chat.id !== chatId);
+            
+            if (this.currentSession === chatId) {
+                this.currentSession = this.chats[0].id;
+            }
+            
+            this.saveChats();
+            this.loadChatHistory();
+            
+            if (this.currentSession === chatId) {
+                this.switchChat(this.currentSession);
+            }
+        }
+    }
+
+    clearAllChats() {
+        if (confirm('确定要清空所有对话吗？此操作不可撤销。')) {
+            this.chats = [
+                { id: 'default', title: '新对话', timestamp: new Date().toISOString(), messages: [] }
+            ];
+            this.currentSession = 'default';
+            
+            this.saveChats();
+            this.loadChatHistory();
+            this.clearChatContainer();
+            
+            document.querySelector('.current-chat-title').textContent = '新对话';
+        }
+    }
+
+    clearChatContainer() {
+        document.getElementById('chat-container').innerHTML = '';
+    }
+
+    updateChatTitle(firstMessage) {
+        const currentChat = this.chats.find(chat => chat.id === this.currentSession);
+        if (currentChat && currentChat.title === '新对话') {
+            // 使用第一条消息的前20个字符作为标题
+            const title = firstMessage.length > 20 ? firstMessage.substring(0, 20) + '...' : firstMessage;
+            currentChat.title = title;
+            this.saveChats();
+            this.loadChatHistory();
+            document.querySelector('.current-chat-title').textContent = title;
+        }
+    }
+
+    saveMessageToHistory(role, content) {
+        const currentChat = this.chats.find(chat => chat.id === this.currentSession);
+        if (currentChat) {
+            if (!currentChat.messages) {
+                currentChat.messages = [];
+            }
+            currentChat.messages.push({
+                role: role,
+                content: content,
+                timestamp: new Date().toISOString()
+            });
+            this.saveChats();
+        }
+    }
+
     saveChats() {
         localStorage.setItem('llm_agent_chats', JSON.stringify(this.chats));
     }
 
-    // 检查Agent状态
-    async checkAgentStatus() {
-        try {
-            const response = await fetch('/api/health');
-            const result = await response.json();
-            return { 
-                initialized: result.agent_initialized || false,
-                status: result.status || 'unknown'
-            };
-        } catch (error) {
-            return { initialized: false, status: 'error' };
+    showSettings() {
+        // 填充设置表单
+        document.getElementById('api-key').value = this.settings.apiKey || '';
+        document.getElementById('use-database').checked = this.settings.useDatabase || false;
+        
+        if (this.settings.database) {
+            document.getElementById('db-host').value = this.settings.database.host || 'localhost';
+            document.getElementById('db-port').value = this.settings.database.port || 3306;
+            document.getElementById('db-user').value = this.settings.database.user || 'root';
+            document.getElementById('db-password').value = this.settings.database.password || '';
+            document.getElementById('db-name').value = this.settings.database.name || 'llm_agent';
         }
+        
+        document.getElementById('database-settings').style.display = 
+            this.settings.useDatabase ? 'block' : 'none';
+        
+        document.getElementById('settings-modal').style.display = 'block';
     }
 
-    // 显示加载指示器
-    showLoading(show) {
-        const loadingIndicator = document.getElementById('loadingIndicator');
-        loadingIndicator.style.display = show ? 'block' : 'none';
+    saveSettings() {
+        const newSettings = {
+            apiKey: document.getElementById('api-key').value,
+            useDatabase: document.getElementById('use-database').checked,
+            database: {
+                host: document.getElementById('db-host').value,
+                port: parseInt(document.getElementById('db-port').value) || 3306,
+                user: document.getElementById('db-user').value,
+                password: document.getElementById('db-password').value,
+                name: document.getElementById('db-name').value
+            }
+        };
+        
+        // 保存到本地存储
+        this.settings = newSettings;
+        localStorage.setItem('llm_agent_settings', JSON.stringify(newSettings));
+        
+        // 发送到后端
+        fetch('/api/settings', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(newSettings)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('设置已保存');
+                this.hideAllModals();
+            } else {
+                alert('保存设置失败: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('保存设置失败: ' + error.message);
+        });
     }
 
-    // 显示成功消息
-    showSuccess(message) {
-        this.showNotification(message, 'success');
+    showImportModal() {
+        document.getElementById('import-modal').style.display = 'block';
     }
 
-    // 显示错误消息
-    showError(message) {
-        this.showNotification(message, 'error');
+    handleFileUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('文件上传成功: ' + data.message);
+                event.target.value = ''; // 清空文件输入
+                this.hideAllModals();
+            } else {
+                alert('文件上传失败: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('文件上传失败: ' + error.message);
+        });
     }
 
-    // 显示通知
-    showNotification(message, type) {
-        // 简单的通知实现
-        alert(`${type === 'success' ? '✅' : '❌'} ${message}`);
+    hideAllModals() {
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.style.display = 'none';
+        });
+    }
+
+    updateUI() {
+        // 更新界面状态
+        document.getElementById('user-input').focus();
     }
 }
 
-// 全局应用实例
-let app;
-
 // 初始化应用
-document.addEventListener('DOMContentLoaded', () => {
-    app = new LLMAutoAgentApp();
-});
+const app = new LLMAgentApp();
+
+// 全局函数供 HTML 调用
+function deleteChat(chatId) {
+    app.deleteChat(chatId);
+}
+
+// 命令确认函数
+function confirmCommand(command) {
+    return confirm(`即将执行系统命令: ${command}\n\n确定要执行吗？`);
+}
