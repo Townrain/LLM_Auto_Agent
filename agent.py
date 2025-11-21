@@ -114,8 +114,11 @@ class ReactAgent:
     def handle_final_answer(self, response_json: Dict[str, Any]) -> str:
         """处理最终答案"""
         final_answer = response_json['final_answer']
-        print(f"Answer: {final_answer}")
-            
+        
+        # 在Web环境中不打印到控制台，直接返回结果
+        if not is_web_environment():
+            print(f"Answer: {final_answer}")
+                
         interaction_count = self.conversation.increment_interaction()
         if self.config.show_system_messages:
             print(f"[系统] 完成第 {interaction_count} 轮交互（final_answer）")
@@ -238,7 +241,8 @@ class ReactAgent:
         Returns:
             str: 最终答案
         """
-        print("=== ReAct Agent 启动 ===")
+        if not is_web_environment():
+            print("=== ReAct Agent 启动 ===")
         
         start_time = time.time()
         
@@ -336,6 +340,7 @@ class ReactAgent:
                     
                 step_count = 0  # 重置步骤计数
                 
-        print("任务未完成，已达到最大步骤")
+        if not is_web_environment():
+            print("任务未完成，已达到最大步骤")
         return "任务未完成，已达到最大步骤"
 
