@@ -87,8 +87,13 @@ class WebAgentManager:
             
             # 格式化响应
             if isinstance(result, dict):
+                # 如果已经是字典格式，直接返回
                 return True, result
+            elif isinstance(result, str):
+                # 如果是字符串，包装成标准格式
+                return True, {"response": result, "type": "text"}
             else:
+                # 其他类型转换为字符串
                 return True, {"response": str(result), "type": "text"}
                 
         except Exception as e:
@@ -143,11 +148,17 @@ def chat():
         
         success, result = agent_manager.process_message(user_input, conversation_id)
         
-        return jsonify({
-            'success': success,
-            'result': result if success else None,
-            'message': result if not success else '消息处理成功'
-        })
+        if success:
+            return jsonify({
+                'success': True,
+                'result': result,
+                'message': '消息处理成功'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': result  # 这里result是错误消息
+            })
         
     except Exception as e:
         logger.error(f"聊天API错误: {e}")
