@@ -66,10 +66,6 @@ class WebAgentManager:
                 # 创建新的 Agent 实例
                 agent = ReactAgent(config)
                 
-                # 设置初始用户输入
-                if user_input:
-                    agent.conversation.add_message("user", f"question: {user_input}")
-                
                 self.sessions[session_id] = {
                     'agent': agent,
                     'created_at': datetime.now(),
@@ -122,7 +118,7 @@ def process_message():
         logger.info(f"处理用户消息 - 会话: {session_id}, 输入: {user_input[:50]}...")
         
         # 获取或创建 Agent 实例
-        agent = agent_manager.get_agent_for_session(session_id, user_input)
+        agent = agent_manager.get_agent_for_session(session_id)
         if not agent:
             return jsonify({
                 'success': False,
@@ -132,8 +128,8 @@ def process_message():
         # 处理消息
         def run_agent():
             try:
-                # 调用 Agent 的 run 方法
-                result = agent.run()
+                # 调用 Agent 的 run 方法，传递用户输入
+                result = agent.run(user_input)
                 return result
             except Exception as e:
                 logger.error(f"Agent 执行错误: {e}")
