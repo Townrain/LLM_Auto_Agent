@@ -4,6 +4,7 @@ import json
 import os
 import platform
 import requests
+import time
 
 from string import Template
 from typing import List, Dict, Any, Optional
@@ -13,6 +14,10 @@ from Toolmanager import ToolManager
 from AgentConfig import AgentConfig
 from ConversationManager import ConversationManager
 
+
+def is_web_environment() -> bool:
+    """检测是否在Web环境中运行"""
+    return 'FLASK_RUN_FROM_CLI' in os.environ or 'WERKZEUG_RUN_MAIN' in os.environ
 
 class ReactAgent:
     """ReAct Agent主类，整合所有功能"""
@@ -149,6 +154,9 @@ class ReactAgent:
                 
     def get_user_input(self, prompt: str = "Question: ") -> str:
         """获取用户输入"""
+        # 在Web环境中，返回默认值而不是等待输入
+        if is_web_environment():
+            return "继续处理"
         return input(prompt)
         
     def call_deepseek_api(self, messages: List[Dict[str, str]]) -> str:
@@ -220,16 +228,19 @@ class ReactAgent:
                 print(f"API 调用失败: {e}")
             return True  # 出错时退出
             
-    def run(self, user_input: str = None) -> str:
+    def run(self, user_input: str = None, timeout: int = 30) -> str:
         """运行Agent主循环
         
         Args:
             user_input: 用户输入，如果为None则从控制台获取
+            timeout: 最大执行时间（秒），默认30秒
             
         Returns:
             str: 最终答案
         """
         print("=== ReAct Agent 启动 ===")
+        
+        start_time = time.time()
         
         # 初始用户输入
         if user_input is None:
@@ -263,6 +274,10 @@ class ReactAgent:
         
         step_count = 0 # 步数，非final结果数，执行一次action算一次
         while step_count < self.config.max_steps:
+            # 检查超时
+            if time.time() - start_time > timeout:
+                return "请求超时，请重试或简化您的问题"
+            
             step_count += 1
             
             need_new_input = self.process_turn()
@@ -323,5 +338,4 @@ class ReactAgent:
                 
         print("任务未完成，已达到最大步骤")
         return "任务未完成，已达到最大步骤"
-
 
