@@ -192,8 +192,8 @@ class ReactAgent:
         except Exception as e:
             raise Exception(f"DeepSeek API调用错误: {str(e)}")
         
-    def process_turn(self) -> bool:
-        """处理一轮对话，返回是否继续"""
+    def process_turn(self) -> str:
+        """处理一轮对话，返回结果或None表示继续"""
         try:
             # 调用 DeepSeek API
             content = self.call_deepseek_api(self.conversation.messages)
@@ -208,28 +208,28 @@ class ReactAgent:
             except :
                 obs_msg = '{"Incorrect_answer_format": "回答解析失败，请检查回复是否为合理json格式后重新回答"}'
                 self.conversation.add_message("user", obs_msg)
-                return False
+                return None
 
             if "final_answer" in response_json:
-                self.handle_final_answer(response_json)
-                return True  # 需要新的用户输入
+                final_result = self.handle_final_answer(response_json)
+                return final_result  # 返回最终答案
                 
             elif "action" in response_json:
                 self.handle_action(response_json)
-                return False  # 继续AI推理
+                return None  # 继续AI推理
                 
             else:
                 if self.config.show_system_messages:
                     print("[系统] AI响应中没有找到 'final_answer' 或 'action' 字段")
                     print(f"[系统] 响应内容: {response_json}")
-                return False
+                return None
                 
         except json.JSONDecodeError:
-            return False
+            return None
         except Exception as e:
             if self.config.show_system_messages:
                 print(f"API 调用失败: {e}")
-            return True  # 出错时退出
+            return f"API调用失败: {str(e)}"  # 出错时返回错误信息
             
     def run(self, user_input: str = None, timeout: int = 30) -> str:
         """运行Agent主循环
@@ -284,61 +284,44 @@ class ReactAgent:
             
             step_count += 1
             
-            need_new_input = self.process_turn()
+            result = self.process_turn()
             
-            if need_new_input:
-                # 检查是否需要刷新系统提示
-                if self.conversation.should_refresh_prompt():
-                    if self.config.show_system_messages:
-                        print(f"[系统] 达到 {self.config.refresh_prompt_interval} 轮交互，重新添加系统提示")
-                        
-                    if user_input is None:
-                        user_input = self.get_user_input()
+            # 如果process_turn返回了结果，则直接返回
+            if result is not None:
+                return result
+            
+            # 检查是否需要新的用户输入
+            if self.conversation.should_refresh_prompt():
+                if self.config.show_system_messages:
+                    print(f"[系统] 达到 {self.config.refresh_prompt_interval} 轮交互，重新添加系统提示")
                     
-                    # 再次收集数据库上下文
-                    db_context = self.collect_database_context(user_id, user_input)
-                    system_prompt = self.render_system_prompt()
-                    
-                    # 增强用户输入
-                    if db_context:
-                        context_info = "数据库上下文信息:\n"
-                        if db_context.get('user_profile'):
-                            context_info += f"用户个人资料: {db_context['user_profile']}\n"
-                        if db_context.get('recent_conversations'):
-                            context_info += f"最近对话: {len(db_context['recent_conversations'])} 条\n"
-                        if db_context.get('relevant_knowledge'):
-                            context_info += f"相关知识: {len(db_context['relevant_knowledge'])} 条\n"
-                        enhanced_input = f"{user_input}\n\n[数据库上下文]\n{context_info}"
-                    else:
-                        enhanced_input = user_input
-                    
-                    self.conversation.refresh_context_with_prompt(enhanced_input, system_prompt)
-                    
-                    if self.config.show_system_messages:
-                        print(f"[系统] 系统提示已刷新，当前 {len(self.conversation.messages)} 条上下文消息")
+                if user_input is None:
+                    user_input = self.get_user_input()
+                
+                # 再次收集数据库上下文
+                db_context = self.collect_database_context(user_id, user_input)
+                system_prompt = self.render_system_prompt()
+                
+                # 增强用户输入
+                if db_context:
+                    context_info = "数据库上下文信息:\n"
+                    if db_context.get('user_profile'):
+                        context_info += f"用户个人资料: {db_context['user_profile']}\n"
+                    if db_context.get('recent_conversations'):
+                        context_info += f"最近对话: {len(db_context['recent_conversations'])} 条\n"
+                    if db_context.get('relevant_knowledge'):
+                        context_info += f"相关知识: {len(db_context['relevant_knowledge'])} 条\n"
+                    enhanced_input = f"{user_input}\n\n[数据库上下文]\n{context_info}"
                 else:
-                    if user_input is None:
-                        user_input = self.get_user_input()
-                    
-                    # 收集数据库上下文
-                    db_context = self.collect_database_context(user_id, user_input)
-                    
-                    # 增强用户输入
-                    if db_context:
-                        context_info = "数据库上下文信息:\n"
-                        if db_context.get('user_profile'):
-                            context_info += f"用户个人资料: {db_context['user_profile']}\n"
-                        if db_context.get('recent_conversations'):
-                            context_info += f"最近对话: {len(db_context['recent_conversations'])} 条\n"
-                        if db_context.get('relevant_knowledge'):
-                            context_info += f"相关知识: {len(db_context['relevant_knowledge'])} 条\n"
-                        enhanced_input = f"{user_input}\n\n[数据库上下文]\n{context_info}"
-                    else:
-                        enhanced_input = user_input
-                    
-                    self.conversation.add_message("user", f"question: {enhanced_input}")
-                    
-                step_count = 0  # 重置步骤计数
+                    enhanced_input = user_input
+                
+                self.conversation.refresh_context_with_prompt(enhanced_input, system_prompt)
+                
+                if self.config.show_system_messages:
+                    print(f"[系统] 系统提示已刷新，当前 {len(self.conversation.messages)} 条上下文消息")
+            
+            # 重置步骤计数
+            step_count = 0
                 
         if not is_web_environment():
             print("任务未完成，已达到最大步骤")
