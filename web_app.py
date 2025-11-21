@@ -46,12 +46,29 @@ class WebAgentManager:
             try:
                 # 动态导入 Agent 模块
                 from agent import ReactAgent
+                from AgentConfig import AgentConfig
+                
+                # 创建配置对象
+                config = AgentConfig()
+                
+                # 从会话中加载配置（如果存在）
+                if 'agent_config' in session:
+                    config_dict = session['agent_config']
+                    config.api_key = config_dict.get('api_key', '')
+                    config.model_name = config_dict.get('model_name', 'deepseek-chat')
+                    config.base_url = config_dict.get('base_url', 'https://api.deepseek.com/v1')
+                    config.max_steps = config_dict.get('max_steps', 10)
+                    config.enable_database = config_dict.get('enable_database', False)
+                    config.show_system_message = config_dict.get('show_system_message', False)
+                    config.prompt_refresh_interval = config_dict.get('prompt_refresh_interval', 3)
+                    config.conda_env = config_dict.get('conda_env', '')
                 
                 # 创建新的 Agent 实例
+                agent = ReactAgent(config)
+                
+                # 设置初始用户输入
                 if user_input:
-                    agent = ReactAgent(user_input)
-                else:
-                    agent = ReactAgent("欢迎使用 LLM Auto Agent")
+                    agent.conversation.add_message("user", f"question: {user_input}")
                 
                 self.sessions[session_id] = {
                     'agent': agent,
@@ -115,7 +132,7 @@ def process_message():
         # 处理消息
         def run_agent():
             try:
-                # 调用 Agent 的 run 方法（不传递参数）
+                # 调用 Agent 的 run 方法
                 result = agent.run()
                 return result
             except Exception as e:
@@ -165,21 +182,23 @@ def update_settings():
     try:
         data = request.get_json()
         
+        # 创建配置字典
+        config_dict = {
+            'api_key': data.get('api_key', ''),
+            'model_name': data.get('model_name', 'deepseek-chat'),
+            'base_url': data.get('base_url', 'https://api.deepseek.com/v1'),
+            'max_steps': data.get('max_steps', 10),
+            'enable_database': data.get('enable_database', False),
+            'show_system_message': data.get('show_system_message', False),
+            'prompt_refresh_interval': data.get('prompt_refresh_interval', 3),
+            'conda_env': data.get('conda_env', '')
+        }
+        
+        # 保存配置到会话
+        session['agent_config'] = config_dict
+        
         # 更新环境变量
-        if 'api_key' in data:
-            os.environ['DEEPSEEK_API_KEY'] = data['api_key']
-        
-        if 'use_database' in data:
-            os.environ['USE_DATABASE'] = str(data['use_database'])
-        
-        # 数据库配置
-        if data.get('use_database', False):
-            db_config = data.get('database', {})
-            os.environ['DB_HOST'] = db_config.get('host', 'localhost')
-            os.environ['DB_PORT'] = str(db_config.get('port', 3306))
-            os.environ['DB_USER'] = db_config.get('user', 'root')
-            os.environ['DB_PASSWORD'] = db_config.get('password', '')
-            os.environ['DB_NAME'] = db_config.get('name', 'llm_agent')
+        os.environ['DEEPSEEK_API_KEY'] = config_dict['api_key']
         
         return jsonify({
             'success': True,
