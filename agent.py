@@ -220,12 +220,20 @@ class ReactAgent:
                 print(f"API 调用失败: {e}")
             return True  # 出错时退出
             
-    def run(self) -> None:
-        """运行Agent主循环"""
+    def run(self, user_input: str = None) -> str:
+        """运行Agent主循环
+        
+        Args:
+            user_input: 用户输入，如果为None则从控制台获取
+            
+        Returns:
+            str: 最终答案
+        """
         print("=== ReAct Agent 启动 ===")
         
         # 初始用户输入
-        user_input = self.get_user_input()
+        if user_input is None:
+            user_input = self.get_user_input()
         
         # 从数据库收集上下文（如果可用）
         user_id = "default_user"  # 在实际应用中应该从配置或输入中获取
@@ -265,7 +273,8 @@ class ReactAgent:
                     if self.config.show_system_messages:
                         print(f"[系统] 达到 {self.config.refresh_prompt_interval} 轮交互，重新添加系统提示")
                         
-                    user_input = self.get_user_input()
+                    if user_input is None:
+                        user_input = self.get_user_input()
                     
                     # 再次收集数据库上下文
                     db_context = self.collect_database_context(user_id, user_input)
@@ -289,7 +298,8 @@ class ReactAgent:
                     if self.config.show_system_messages:
                         print(f"[系统] 系统提示已刷新，当前 {len(self.conversation.messages)} 条上下文消息")
                 else:
-                    user_input = self.get_user_input()
+                    if user_input is None:
+                        user_input = self.get_user_input()
                     
                     # 收集数据库上下文
                     db_context = self.collect_database_context(user_id, user_input)
@@ -312,5 +322,6 @@ class ReactAgent:
                 step_count = 0  # 重置步骤计数
                 
         print("任务未完成，已达到最大步骤")
+        return "任务未完成，已达到最大步骤"
 
 
