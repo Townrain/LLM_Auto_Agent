@@ -79,6 +79,25 @@ class WebAgentManager:
         
         return self.sessions[session_id]['agent']
     
+    def process_message(self, session_id, user_input):
+        """处理用户消息并返回结果"""
+        try:
+            agent = self.get_agent_for_session(session_id)
+            if not agent:
+                return "无法初始化 AI 助手"
+            
+            # 直接调用 Agent 的 run 方法，传递用户输入
+            result = agent.run(user_input=user_input, timeout=30)
+            
+            # 更新消息计数
+            self.sessions[session_id]['message_count'] += 1
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"处理消息时出错: {e}")
+            return f"处理消息时出错: {str(e)}"
+    
     def cleanup_old_sessions(self):
         """清理旧的会话"""
         current_time = datetime.now()
@@ -117,37 +136,8 @@ def process_message():
         
         logger.info(f"处理用户消息 - 会话: {session_id}, 输入: {user_input[:50]}...")
         
-        # 获取或创建 Agent 实例
-        agent = agent_manager.get_agent_for_session(session_id)
-        if not agent:
-            return jsonify({
-                'success': False,
-                'error': '无法初始化 AI 助手'
-            })
-        
-        # 处理消息
-        def run_agent():
-            try:
-                # 调用 Agent 的 run 方法，传递用户输入
-                result = agent.run(user_input)
-                return result
-            except Exception as e:
-                logger.error(f"Agent 执行错误: {e}")
-                return f"处理消息时出错: {str(e)}"
-        
-        # 在新线程中运行 Agent（避免阻塞）
-        agent_thread = threading.Thread(target=run_agent)
-        agent_thread.start()
-        agent_thread.join(timeout=60)  # 60秒超时
-        
-        if agent_thread.is_alive():
-            return jsonify({
-                'success': False,
-                'error': '处理超时，请稍后重试'
-            })
-        
-        # 获取结果
-        result = run_agent()
+        # 直接处理消息
+        result = agent_manager.process_message(session_id, user_input)
         
         # 格式化响应
         if isinstance(result, str):
