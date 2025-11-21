@@ -29,38 +29,95 @@ class LLMAgentApp {
 
     bindEvents() {
         // 发送消息
-        document.getElementById('send-btn').addEventListener('click', () => this.sendMessage());
-        document.getElementById('user-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                this.sendMessage();
-            }
-        });
+        const sendBtn = document.getElementById('sendBtn');
+        const userInput = document.getElementById('userInput');
+        
+        if (sendBtn) {
+            sendBtn.addEventListener('click', () => this.sendMessage());
+        }
+        
+        if (userInput) {
+            userInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    this.sendMessage();
+                }
+            });
+        }
 
         // 新对话
-        document.getElementById('new-chat-btn').addEventListener('click', () => this.createNewChat());
+        const newChatBtn = document.getElementById('newChatBtn');
+        if (newChatBtn) {
+            newChatBtn.addEventListener('click', () => this.createNewChat());
+        }
 
         // 设置按钮
-        document.getElementById('settings-btn').addEventListener('click', () => this.showSettings());
+        const settingsBtn = document.getElementById('settingsBtn');
+        if (settingsBtn) {
+            settingsBtn.addEventListener('click', () => this.showSettings());
+        }
 
         // 导入按钮
-        document.getElementById('import-btn').addEventListener('click', () => this.showImportModal());
+        const importBtn = document.getElementById('importBtn');
+        if (importBtn) {
+            importBtn.addEventListener('click', () => this.showImportModal());
+        }
 
         // 模态框关闭
-        document.querySelectorAll('.modal .close').forEach(closeBtn => {
-            closeBtn.addEventListener('click', () => this.hideAllModals());
-        });
+        const closeSettings = document.getElementById('closeSettings');
+        const closeImport = document.getElementById('closeImport');
+        const closeCommand = document.getElementById('closeCommand');
+        
+        if (closeSettings) {
+            closeSettings.addEventListener('click', () => this.hideAllModals());
+        }
+        if (closeImport) {
+            closeImport.addEventListener('click', () => this.hideAllModals());
+        }
+        if (closeCommand) {
+            closeCommand.addEventListener('click', () => this.hideAllModals());
+        }
 
         // 设置保存
-        document.getElementById('save-settings').addEventListener('click', () => this.saveSettings());
+        const settingsForm = document.getElementById('settingsForm');
+        if (settingsForm) {
+            settingsForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.saveSettings();
+            });
+        }
+
+        // 取消按钮
+        const cancelSettings = document.getElementById('cancelSettings');
+        const cancelImport = document.getElementById('cancelImport');
+        const cancelCommand = document.getElementById('cancelCommand');
+        
+        if (cancelSettings) {
+            cancelSettings.addEventListener('click', () => this.hideAllModals());
+        }
+        if (cancelImport) {
+            cancelImport.addEventListener('click', () => this.hideAllModals());
+        }
+        if (cancelCommand) {
+            cancelCommand.addEventListener('click', () => this.hideAllModals());
+        }
 
         // 文件上传
-        document.getElementById('upload-file').addEventListener('change', (e) => this.handleFileUpload(e));
+        const fileInput = document.getElementById('fileInput');
+        if (fileInput) {
+            fileInput.addEventListener('change', (e) => this.handleFileUpload(e));
+        }
 
         // 数据库开关
-        document.getElementById('use-database').addEventListener('change', (e) => {
-            document.getElementById('database-settings').style.display = e.target.checked ? 'block' : 'none';
-        });
+        const useDatabase = document.getElementById('useDatabase');
+        if (useDatabase) {
+            useDatabase.addEventListener('change', (e) => {
+                const dbSettings = document.getElementById('databaseSettings');
+                if (dbSettings) {
+                    dbSettings.style.display = e.target.checked ? 'block' : 'none';
+                }
+            });
+        }
 
         // 点击模态框外部关闭
         window.addEventListener('click', (e) => {
@@ -68,11 +125,17 @@ class LLMAgentApp {
                 this.hideAllModals();
             }
         });
+
+        // 命令确认
+        const confirmCommand = document.getElementById('confirmCommand');
+        if (confirmCommand) {
+            confirmCommand.addEventListener('click', () => this.executeConfirmedCommand());
+        }
     }
 
     sendMessage() {
-        const input = document.getElementById('user-input');
-        const message = input.value.trim();
+        const input = document.getElementById('userInput');
+        const message = input ? input.value.trim() : '';
         
         if (!message) return;
 
@@ -80,7 +143,9 @@ class LLMAgentApp {
         this.addMessage('user', message);
         
         // 清空输入框
-        input.value = '';
+        if (input) {
+            input.value = '';
+        }
         
         // 显示加载状态
         const loadingId = this.showLoading();
@@ -117,7 +182,9 @@ class LLMAgentApp {
     }
 
     addMessage(role, content) {
-        const chatContainer = document.getElementById('chat-container');
+        const chatContainer = document.getElementById('chatMessages');
+        if (!chatContainer) return;
+        
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${role}-message`;
         
@@ -149,7 +216,9 @@ class LLMAgentApp {
     }
 
     showLoading() {
-        const chatContainer = document.getElementById('chat-container');
+        const chatContainer = document.getElementById('chatMessages');
+        if (!chatContainer) return null;
+        
         const loadingDiv = document.createElement('div');
         loadingDiv.className = 'message assistant-message';
         loadingDiv.id = 'loading-message';
@@ -172,6 +241,7 @@ class LLMAgentApp {
     }
 
     hideLoading(loadingId) {
+        if (!loadingId) return;
         const loadingElement = document.getElementById(loadingId);
         if (loadingElement) {
             loadingElement.remove();
@@ -179,7 +249,9 @@ class LLMAgentApp {
     }
 
     showError(message) {
-        const chatContainer = document.getElementById('chat-container');
+        const chatContainer = document.getElementById('chatMessages');
+        if (!chatContainer) return;
+        
         const errorDiv = document.createElement('div');
         errorDiv.className = 'message system-message';
         
@@ -211,11 +283,16 @@ class LLMAgentApp {
         this.clearChatContainer();
         
         // 更新当前对话标题
-        document.querySelector('.current-chat-title').textContent = '新对话';
+        const currentChatTitle = document.querySelector('.current-chat-title');
+        if (currentChatTitle) {
+            currentChatTitle.textContent = '新对话';
+        }
     }
 
     loadChatHistory() {
-        const chatList = document.getElementById('chat-list');
+        const chatList = document.getElementById('chatList');
+        if (!chatList) return;
+        
         chatList.innerHTML = '';
         
         // 添加清空所有对话按钮
@@ -260,7 +337,10 @@ class LLMAgentApp {
         }
         
         // 更新当前对话标题
-        document.querySelector('.current-chat-title').textContent = chat.title;
+        const currentChatTitle = document.querySelector('.current-chat-title');
+        if (currentChatTitle && chat) {
+            currentChatTitle.textContent = chat.title;
+        }
     }
 
     deleteChat(chatId) {
@@ -296,12 +376,18 @@ class LLMAgentApp {
             this.loadChatHistory();
             this.clearChatContainer();
             
-            document.querySelector('.current-chat-title').textContent = '新对话';
+            const currentChatTitle = document.querySelector('.current-chat-title');
+            if (currentChatTitle) {
+                currentChatTitle.textContent = '新对话';
+            }
         }
     }
 
     clearChatContainer() {
-        document.getElementById('chat-container').innerHTML = '';
+        const chatContainer = document.getElementById('chatMessages');
+        if (chatContainer) {
+            chatContainer.innerHTML = '';
+        }
     }
 
     updateChatTitle(firstMessage) {
@@ -312,7 +398,11 @@ class LLMAgentApp {
             currentChat.title = title;
             this.saveChats();
             this.loadChatHistory();
-            document.querySelector('.current-chat-title').textContent = title;
+            
+            const currentChatTitle = document.querySelector('.current-chat-title');
+            if (currentChatTitle) {
+                currentChatTitle.textContent = title;
+            }
         }
     }
 
@@ -336,34 +426,55 @@ class LLMAgentApp {
     }
 
     showSettings() {
+        const settingsModal = document.getElementById('settingsModal');
+        if (!settingsModal) return;
+        
         // 填充设置表单
-        document.getElementById('api-key').value = this.settings.apiKey || '';
-        document.getElementById('use-database').checked = this.settings.useDatabase || false;
+        const apiKey = document.getElementById('apiKey');
+        const useDatabase = document.getElementById('useDatabase');
+        const dbHost = document.getElementById('dbHost');
+        const dbPort = document.getElementById('dbPort');
+        const dbUser = document.getElementById('dbUser');
+        const dbPassword = document.getElementById('dbPassword');
+        const dbName = document.getElementById('dbName');
+        const databaseSettings = document.getElementById('databaseSettings');
+        
+        if (apiKey) apiKey.value = this.settings.apiKey || '';
+        if (useDatabase) useDatabase.checked = this.settings.useDatabase || false;
         
         if (this.settings.database) {
-            document.getElementById('db-host').value = this.settings.database.host || 'localhost';
-            document.getElementById('db-port').value = this.settings.database.port || 3306;
-            document.getElementById('db-user').value = this.settings.database.user || 'root';
-            document.getElementById('db-password').value = this.settings.database.password || '';
-            document.getElementById('db-name').value = this.settings.database.name || 'llm_agent';
+            if (dbHost) dbHost.value = this.settings.database.host || 'localhost';
+            if (dbPort) dbPort.value = this.settings.database.port || 3306;
+            if (dbUser) dbUser.value = this.settings.database.user || 'root';
+            if (dbPassword) dbPassword.value = this.settings.database.password || '';
+            if (dbName) dbName.value = this.settings.database.name || 'llm_agent';
         }
         
-        document.getElementById('database-settings').style.display = 
-            this.settings.useDatabase ? 'block' : 'none';
+        if (databaseSettings) {
+            databaseSettings.style.display = this.settings.useDatabase ? 'block' : 'none';
+        }
         
-        document.getElementById('settings-modal').style.display = 'block';
+        settingsModal.style.display = 'block';
     }
 
     saveSettings() {
+        const apiKey = document.getElementById('apiKey');
+        const useDatabase = document.getElementById('useDatabase');
+        const dbHost = document.getElementById('dbHost');
+        const dbPort = document.getElementById('dbPort');
+        const dbUser = document.getElementById('dbUser');
+        const dbPassword = document.getElementById('dbPassword');
+        const dbName = document.getElementById('dbName');
+        
         const newSettings = {
-            apiKey: document.getElementById('api-key').value,
-            useDatabase: document.getElementById('use-database').checked,
+            apiKey: apiKey ? apiKey.value : '',
+            useDatabase: useDatabase ? useDatabase.checked : false,
             database: {
-                host: document.getElementById('db-host').value,
-                port: parseInt(document.getElementById('db-port').value) || 3306,
-                user: document.getElementById('db-user').value,
-                password: document.getElementById('db-password').value,
-                name: document.getElementById('db-name').value
+                host: dbHost ? dbHost.value : 'localhost',
+                port: dbPort ? parseInt(dbPort.value) || 3306 : 3306,
+                user: dbUser ? dbUser.value : 'root',
+                password: dbPassword ? dbPassword.value : '',
+                name: dbName ? dbName.value : 'llm_agent'
             }
         };
         
@@ -394,7 +505,10 @@ class LLMAgentApp {
     }
 
     showImportModal() {
-        document.getElementById('import-modal').style.display = 'block';
+        const importModal = document.getElementById('importModal');
+        if (importModal) {
+            importModal.style.display = 'block';
+        }
     }
 
     handleFileUpload(event) {
@@ -429,18 +543,31 @@ class LLMAgentApp {
         });
     }
 
+    executeConfirmedCommand() {
+        // 这里处理确认执行的命令
+        this.hideAllModals();
+    }
+
     updateUI() {
         // 更新界面状态
-        document.getElementById('user-input').focus();
+        const userInput = document.getElementById('userInput');
+        if (userInput) {
+            userInput.focus();
+        }
     }
 }
 
 // 初始化应用
-const app = new LLMAgentApp();
+let app;
+document.addEventListener('DOMContentLoaded', function() {
+    app = new LLMAgentApp();
+});
 
 // 全局函数供 HTML 调用
 function deleteChat(chatId) {
-    app.deleteChat(chatId);
+    if (app) {
+        app.deleteChat(chatId);
+    }
 }
 
 // 命令确认函数

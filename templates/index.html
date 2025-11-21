@@ -18,7 +18,10 @@
             </div>
             
             <div class="chat-history" id="chatHistory">
-                <!-- 对话历史将在这里动态生成 -->
+                <div class="current-chat-title">新对话</div>
+                <div class="chat-list" id="chatList">
+                    <!-- 对话历史将在这里动态生成 -->
+                </div>
             </div>
             
             <div class="sidebar-footer">
@@ -55,7 +58,7 @@
                 <div class="chat-input-container">
                     <div class="chat-input-wrapper">
                         <textarea 
-                            id="messageInput" 
+                            id="userInput" 
                             placeholder="输入您的问题... (按Enter发送，Shift+Enter换行)"
                             rows="1"
                         ></textarea>
