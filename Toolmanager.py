@@ -135,7 +135,7 @@ class ToolManager:
         
         for tool_name, params in parsed_actions:
             try:
-                result = self.tools[func_name](**params)
+                result = self.tools[tool_name](**params)
                 results.append(result)
             except Exception as e:
                 # 记录错误但继续执行其他工具
@@ -171,4 +171,3 @@ class ToolManager:
     def list_tools(self) -> List[str]:
         """返回所有已注册工具的名称列表"""
         return list(self.tools.keys())
-
