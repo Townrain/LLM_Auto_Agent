@@ -181,30 +181,61 @@ class LLMAutoAgentApp {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ message })
+                body: JSON.stringify({ 
+                    message: message,
+                    conversation_id: this.currentChatId 
+                })
             });
             
             const result = await response.json();
             
             if (result.success) {
-                // 这里可以处理流式响应或轮询结果
-                this.addMessage('assistant', result.message || '请求已接收，正在处理...');
-                
-                // 模拟等待结果（实际应用中应该使用WebSocket或轮询）
-                setTimeout(() => {
-                    this.showLoading(false);
-                    this.addMessage('assistant', '这是AI的回复。在实际应用中，这里会显示真实的AI响应。');
-                    this.isProcessing = false;
-                }, 2000);
+                // 处理AI的响应
+                this.handleAIResponse(result.result);
             } else {
-                this.showError(result.error || '发送消息失败');
-                this.isProcessing = false;
-                this.showLoading(false);
+                this.showError(result.message || '发送消息失败');
+                this.addMessage('assistant', `抱歉，处理您的请求时出现了问题：${result.message}`);
             }
         } catch (error) {
             this.showError('网络错误: ' + error.message);
+            this.addMessage('assistant', '抱歉，网络连接出现问题，请稍后重试。');
+        } finally {
             this.isProcessing = false;
             this.showLoading(false);
+        }
+    }
+
+    // 处理AI响应
+    handleAIResponse(result) {
+        if (!result) {
+            this.addMessage('assistant', '抱歉，没有收到有效的响应。');
+            return;
+        }
+
+        // 根据响应类型处理
+        if (typeof result === 'string') {
+            this.addMessage('assistant', result);
+        } else if (result.response) {
+            // 显示最终回答
+            this.addMessage('assistant', result.response);
+            
+            // 如果有思考过程，可以显示
+            if (result.thoughts) {
+                this.addMessage('system', `思考过程：${result.thoughts}`);
+            }
+            
+            // 如果有工具调用结果
+            if (result.tool_results) {
+                result.tool_results.forEach(toolResult => {
+                    this.addMessage('system', `工具执行：${toolResult}`);
+                });
+            }
+        } else if (result.final_answer) {
+            this.addMessage('assistant', result.final_answer);
+        } else {
+            // 尝试显示任何可用的文本内容
+            const textResponse = JSON.stringify(result, null, 2);
+            this.addMessage('assistant', textResponse);
         }
     }
 
@@ -214,7 +245,7 @@ class LLMAutoAgentApp {
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${type}-message`;
         
-        const avatar = type === 'user' ? '👤' : '🤖';
+        const avatar = type === 'user' ? '👤' : (type === 'system' ? '⚙️' : '🤖');
         
         messageDiv.innerHTML = `
             <div class="message-avatar">${avatar}</div>
@@ -236,6 +267,10 @@ class LLMAutoAgentApp {
 
     // 格式化消息内容
     formatMessage(content) {
+        if (typeof content !== 'string') {
+            content = String(content);
+        }
+        
         // 简单的Markdown格式化
         return content
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
@@ -346,7 +381,7 @@ class LLMAutoAgentApp {
         uploadProgress.style.display = 'block';
         
         try {
-            const response = await fetch('/api/upload_knowledge', {
+            const response = await fetch('/api/upload', {
                 method: 'POST',
                 body: formData
             });
@@ -357,7 +392,7 @@ class LLMAutoAgentApp {
                 this.showSuccess(result.message);
                 document.getElementById('importModal').style.display = 'none';
             } else {
-                this.showError(result.error || '上传失败');
+                this.showError(result.message || '上传失败');
             }
         } catch (error) {
             this.showError('上传失败: ' + error.message);
@@ -400,7 +435,7 @@ class LLMAutoAgentApp {
             if (result.success) {
                 this.showSuccess(result.message);
             } else {
-                this.showError(result.error || '命令执行失败');
+                this.showError(result.message || '命令执行失败');
             }
         } catch (error) {
             this.showError('命令执行失败: ' + error.message);
@@ -430,6 +465,48 @@ class LLMAutoAgentApp {
         this.addMessage('system', '开始新的对话。您可以向我提问或请求帮助处理各种任务。');
     }
 
+    // 删除对话
+    deleteChat(chatId, event) {
+        event.stopPropagation(); // 阻止事件冒泡
+        
+        if (this.chats.length <= 1) {
+            this.showError('至少需要保留一个对话');
+            return;
+        }
+        
+        if (confirm('确定要删除这个对话吗？此操作无法撤销。')) {
+            // 删除对话
+            this.chats = this.chats.filter(chat => chat.id !== chatId);
+            
+            // 如果删除的是当前对话，切换到第一个对话
+            if (this.currentChatId === chatId) {
+                this.currentChatId = this.chats[0]?.id || null;
+                this.switchToChat(this.currentChatId);
+            }
+            
+            this.saveChats();
+            this.renderChatHistory();
+            this.showSuccess('对话已删除');
+        }
+    }
+
+    // 清空所有对话
+    clearAllChats() {
+        if (confirm('确定要清空所有对话吗？此操作无法撤销。')) {
+            this.chats = [{
+                id: 'default_chat',
+                title: '默认对话',
+                messages: [],
+                createdAt: new Date().toISOString()
+            }];
+            this.currentChatId = 'default_chat';
+            this.saveChats();
+            this.renderChatHistory();
+            this.clearChatMessages();
+            this.showSuccess('所有对话已清空');
+        }
+    }
+
     // 清空聊天消息
     clearChatMessages() {
         const chatMessages = document.getElementById('chatMessages');
@@ -441,12 +518,34 @@ class LLMAutoAgentApp {
         const chatHistory = document.getElementById('chatHistory');
         chatHistory.innerHTML = '';
         
+        // 添加清空所有按钮
+        if (this.chats.length > 1) {
+            const clearAllBtn = document.createElement('div');
+            clearAllBtn.className = 'chat-item clear-all';
+            clearAllBtn.innerHTML = '🗑️ 清空所有对话';
+            clearAllBtn.addEventListener('click', () => {
+                this.clearAllChats();
+            });
+            chatHistory.appendChild(clearAllBtn);
+        }
+        
         this.chats.forEach(chat => {
             const chatItem = document.createElement('div');
             chatItem.className = `chat-item ${chat.id === this.currentChatId ? 'active' : ''}`;
-            chatItem.textContent = chat.title;
-            chatItem.addEventListener('click', () => {
-                this.switchToChat(chat.id);
+            
+            // 创建对话标题和删除按钮
+            chatItem.innerHTML = `
+                <div class="chat-item-content">
+                    <span class="chat-title">${chat.title}</span>
+                    <button class="delete-chat-btn" onclick="app.deleteChat('${chat.id}', event)">🗑️</button>
+                </div>
+            `;
+            
+            chatItem.addEventListener('click', (e) => {
+                // 如果点击的是删除按钮，不切换对话
+                if (!e.target.classList.contains('delete-chat-btn')) {
+                    this.switchToChat(chat.id);
+                }
             });
             chatHistory.appendChild(chatItem);
         });
@@ -490,10 +589,14 @@ class LLMAutoAgentApp {
     // 检查Agent状态
     async checkAgentStatus() {
         try {
-            const response = await fetch('/api/check_status');
-            return await response.json();
+            const response = await fetch('/api/health');
+            const result = await response.json();
+            return { 
+                initialized: result.agent_initialized || false,
+                status: result.status || 'unknown'
+            };
         } catch (error) {
-            return { initialized: false };
+            return { initialized: false, status: 'error' };
         }
     }
 
@@ -520,7 +623,10 @@ class LLMAutoAgentApp {
     }
 }
 
+// 全局应用实例
+let app;
+
 // 初始化应用
 document.addEventListener('DOMContentLoaded', () => {
-    new LLMAutoAgentApp();
+    app = new LLMAutoAgentApp();
 });
