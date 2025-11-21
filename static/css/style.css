@@ -86,6 +86,48 @@ body {
     border-color: #10a37f;
 }
 
+.chat-item.clear-all {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #dc2626;
+    text-align: center;
+    font-weight: 500;
+}
+
+.chat-item.clear-all:hover {
+    background: #fee2e2;
+    border-color: #fca5a5;
+}
+
+.chat-item-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.chat-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.delete-chat-btn {
+    background: none;
+    border: none;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    font-size: 12px;
+}
+
+.delete-chat-btn:hover {
+    color: #dc2626;
+    background: #fef2f2;
+}
+
 .sidebar-footer {
     padding: 20px;
     border-top: 1px solid #e5e5e5;
