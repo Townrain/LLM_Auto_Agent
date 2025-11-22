@@ -2,19 +2,23 @@
 const sidebar = document.getElementById('sidebar');
 const toggleBtn = document.getElementById('toggleSidebar');
 
-toggleBtn.addEventListener('click', () => {
-    sidebar.classList.toggle('collapsed');
-});
+if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('collapsed');
+    });
+}
 
 // 自动调整输入框高度
 const userInput = document.getElementById('userInput');
-userInput.addEventListener('input', function() {
-    this.style.height = 'auto';
-    this.style.height = Math.min(this.scrollHeight, 150) + 'px';
-});
+if (userInput) {
+    userInput.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+    });
+}
 
 // 发送消息
-async function sendMessage() {
+function sendMessage() {
     const input = document.getElementById('userInput');
     const message = input.value.trim();
     
@@ -30,68 +34,60 @@ async function sendMessage() {
     // 禁用发送按钮
     const sendBtn = document.getElementById('sendBtn');
     sendBtn.disabled = true;
-    sendBtn.style.opacity = '0.6';
     
-    try {
-        const response = await fetch('/api/chat', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ message: message })
-        });
-        
-        const data = await response.json();
-        
+    // 发送到后端
+    fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ message: message })
+    })
+    .then(response => response.json())
+    .then(data => {
         if (data.response) {
             addMessage('assistant', data.response);
-        } else if (data.error) {
-            addMessage('assistant', '错误: ' + data.error);
         }
-    } catch (error) {
-        addMessage('assistant', '发送消息时出错: ' + error.message);
-    } finally {
-        // 重新启用发送按钮
+        if (data.error) {
+            addMessage('assistant', '抱歉，发生了错误: ' + data.error);
+        }
+    })
+    .catch(error => {
+        addMessage('assistant', '抱歉，发生了错误: ' + error.message);
+    })
+    .finally(() => {
         sendBtn.disabled = false;
-        sendBtn.style.opacity = '1';
-    }
+        input.focus();
+    });
 }
 
-// 添加消息到聊天界面
+// 添加消息到聊天区域
 function addMessage(role, content) {
     const chatMessages = document.getElementById('chatMessages');
     
     // 移除欢迎消息
-    const welcomeMessage = chatMessages.querySelector('.welcome-message');
-    if (welcomeMessage) {
-        welcomeMessage.remove();
+    const welcomeMsg = chatMessages.querySelector('.welcome-message');
+    if (welcomeMsg) {
+        welcomeMsg.remove();
     }
     
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${role}-message`;
     
-    const avatar = role === 'user' ? '👤' : '🤖';
-    const roleName = role === 'user' ? '你' : 'AI 助手';
+    const avatar = document.createElement('div');
+    avatar.className = 'message-avatar';
+    avatar.textContent = role === 'user' ? '👤' : '🤖';
     
-    messageDiv.innerHTML = `
-        <div class="message-header">
-            <div class="message-avatar">${avatar}</div>
-            <span class="message-role">${roleName}</span>
-        </div>
-        <div class="message-content">${escapeHtml(content)}</div>
-    `;
+    const messageContent = document.createElement('div');
+    messageContent.className = 'message-content';
+    messageContent.textContent = content;
     
+    messageDiv.appendChild(avatar);
+    messageDiv.appendChild(messageContent);
     chatMessages.appendChild(messageDiv);
     
     // 滚动到底部
     chatMessages.scrollTop = chatMessages.scrollHeight;
-}
-
-// HTML 转义
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML.replace(/\n/g, '<br>');
 }
 
 // 键盘事件处理
@@ -103,7 +99,7 @@ function handleKeyPress(event) {
 }
 
 // 更新设置
-async function updateSettings() {
+function updateSettings() {
     const settings = {
         model_name: document.getElementById('modelName').value,
         max_steps: parseInt(document.getElementById('maxSteps').value),
@@ -112,29 +108,26 @@ async function updateSettings() {
         show_system_messages: document.getElementById('showSystemMessages').checked
     };
     
-    try {
-        const response = await fetch('/api/settings', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(settings)
-        });
-        
-        const data = await response.json();
-        
+    fetch('/api/settings', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(settings)
+    })
+    .then(response => response.json())
+    .then(data => {
         if (data.status === 'success') {
-            alert('设置已更新！');
-        } else {
-            alert('更新设置失败: ' + data.message);
+            alert('设置已保存');
         }
-    } catch (error) {
-        alert('更新设置时出错: ' + error.message);
-    }
+    })
+    .catch(error => {
+        alert('保存设置失败: ' + error.message);
+    });
 }
 
 // 上传文件
-async function uploadFile() {
+function uploadFile() {
     const fileInput = document.getElementById('fileUpload');
     const file = fileInput.files[0];
     
@@ -143,48 +136,27 @@ async function uploadFile() {
     const formData = new FormData();
     formData.append('file', file);
     
-    try {
-        const response = await fetch('/api/upload', {
-            method: 'POST',
-            body: formData
-        });
-        
-        const data = await response.json();
-        
+    fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
         if (data.status === 'success') {
-            alert('文件上传成功！');
+            alert('文件上传成功');
             fileInput.value = '';
-        } else {
-            alert('上传失败: ' + data.message);
         }
-    } catch (error) {
-        alert('上传文件时出错: ' + error.message);
-    }
+    })
+    .catch(error => {
+        alert('文件上传失败: ' + error.message);
+    });
 }
 
 // 页面加载完成后的初始化
 document.addEventListener('DOMContentLoaded', () => {
     // 聚焦输入框
-    document.getElementById('userInput').focus();
-    
-    // 加载设置
-    loadSettings();
-});
-
-// 加载设置
-async function loadSettings() {
-    try {
-        const response = await fetch('/api/settings');
-        const data = await response.json();
-        
-        if (data.settings) {
-            document.getElementById('modelName').value = data.settings.model_name || 'deepseek-chat';
-            document.getElementById('maxSteps').value = data.settings.max_steps || 10;
-            document.getElementById('refreshInterval').value = data.settings.refresh_prompt_interval || 3;
-            document.getElementById('enableDatabase').checked = data.settings.enable_database || false;
-            document.getElementById('showSystemMessages').checked = data.settings.show_system_messages || false;
-        }
-    } catch (error) {
-        console.error('加载设置失败:', error);
+    const input = document.getElementById('userInput');
+    if (input) {
+        input.focus();
     }
-}
+});
