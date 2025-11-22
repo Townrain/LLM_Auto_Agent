@@ -19,12 +19,15 @@
             
             <div class="sidebar-content">
                 <div class="section">
-                    <h3>📝 对话历史</h3>
+                    <div class="section-header">
+                        <h3>📝 对话历史</h3>
+                        <button class="new-chat-btn" id="newChatBtn" title="新建对话">
+                            <span class="btn-icon">+</span>
+                            <span class="btn-text">新建对话</span>
+                        </button>
+                    </div>
                     <div class="conversation-list" id="conversationList">
-                        <div class="conversation-item active">
-                            <span class="conversation-title">当前对话</span>
-                            <span class="conversation-time">刚刚</span>
-                        </div>
+                        <!-- 对话项将通过JavaScript动态生成 -->
                     </div>
                 </div>
 
