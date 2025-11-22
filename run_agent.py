@@ -28,7 +28,7 @@ def main():
 
     # 创建并运行Agent
     agent = ReactAgent(config)
-    agent.run()
+    agent.run(user_id="cmd_user")
 
 
 if __name__ == "__main__":
