@@ -1,3 +1,4 @@
+# Core dependencies
 requests>=2.25.0
 python-dotenv>=1.0.0
 beautifulsoup4>=4.9.0
@@ -5,3 +6,26 @@ lxml>=4.6.0
 mysql-connector-python>=8.1.0
 sqlalchemy>=2.0.0
 pymysql>=1.1.0
+
+# Web interface (if using web_app.py)
+# flask>=2.0.0
+
+# Enhancement dependencies
+## Added for better error handling and retry logic
+tenacity>=8.2.0
+backoff>=2.2.1
+
+## Added for colored logging
+colorlog>=6.7.0
+
+## Added for configuration management
+pyyaml>=6.0
+
+## Added for token counting (useful for OpenAI models)
+tiktoken>=0.5.0
+
+## OpenAI API support (optional)
+# openai>=1.0.0
+
+## Anthropic API support (optional)
+# anthropic>=0.18.0
