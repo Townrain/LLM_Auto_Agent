@@ -44,8 +44,29 @@ class ReactAgent:
         else:
             # 如果是旧的 AgentConfig，转换为新的 ConfigManager
             self.config = ConfigManager()
-            self.config.set('api.deepseek.api_key', getattr(config, 'API_KEY', ''))
-            self.config.set('api.deepseek.default_model', getattr(config, 'MODEL', 'deepseek-chat'))
+            # 映射旧配置属性到新配置结构
+            if hasattr(config, 'api_key'):
+                self.config.set('api.deepseek.api_key', config.api_key)
+            if hasattr(config, 'model_name'):
+                self.config.set('api.deepseek.default_model', config.model_name)
+            if hasattr(config, 'base_url'):
+                self.config.set('api.deepseek.base_url', config.base_url)
+            if hasattr(config, 'max_steps'):
+                self.config.set('max_steps', config.max_steps)
+            if hasattr(config, 'refresh_prompt_interval'):
+                self.config.set('prompt_refresh_interval', config.refresh_prompt_interval)
+            if hasattr(config, 'show_system_messages'):
+                self.config.set('debug.show_system_messages', config.show_system_messages)
+            if hasattr(config, 'conda_env'):
+                self.config.set('tools.conda_env', config.conda_env)
+            elif hasattr(config, 'conda'):
+                self.config.set('tools.conda_env', config.conda)
+            if hasattr(config, 'enable_database'):
+                self.config.set('database.enabled', config.enable_database)
+            if hasattr(config, 'database_config'):
+                self.config.set('database', config.database_config)
+            if hasattr(config, 'project_directory'):
+                self.config.set('project_directory', config.project_directory)
         
         # 初始化组件
         self.conversation = ConversationManager(self.config)
