@@ -86,8 +86,11 @@ class WebAgentManager:
             if not agent:
                 return "无法初始化 AI 助手"
             
+            # 根据查询类型动态设置超时时间
+            timeout = self._get_timeout_for_query(user_input)
+            
             # 直接调用 Agent 的 run 方法，传递用户输入
-            result = agent.run(user_input=user_input, timeout=30)
+            result = agent.run(user_input=user_input, timeout=timeout)
             
             # 更新消息计数
             self.sessions[session_id]['message_count'] += 1
@@ -97,6 +100,28 @@ class WebAgentManager:
         except Exception as e:
             logger.error(f"处理消息时出错: {e}")
             return f"处理消息时出错: {str(e)}"
+    
+    def _get_timeout_for_query(self, user_input):
+        """根据查询类型动态设置超时时间"""
+        user_input_lower = user_input.lower()
+        
+        # 简单查询：快速响应
+        simple_keywords = ['你好', 'hello', 'hi', '谢谢', '感谢', '再见']
+        if any(keyword in user_input_lower for keyword in simple_keywords):
+            return 15
+        
+        # 产品/库存查询：中等时间
+        product_keywords = ['库存', '有货', '价格', '多少钱', '产品', '商品']
+        if any(keyword in user_input_lower for keyword in product_keywords):
+            return 45
+        
+        # 复杂查询：较长处理时间
+        complex_keywords = ['详细', '介绍', '分析', '总结', '比较']
+        if any(keyword in user_input_lower for keyword in complex_keywords):
+            return 60
+        
+        # 默认超时时间
+        return 45
     
     def cleanup_old_sessions(self):
         """清理旧的会话"""
