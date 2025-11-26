@@ -98,12 +98,21 @@ class ReactAgent:
         try:
             db_config = self.config.get('database', {})
             if db_config:
-                self.db_tools = create_database_tools({
+                # 创建数据库配置字典，包含所有必要的字段
+                db_tools_config = {
+                    'enable_database': True,
                     'host': db_config.get('host', 'localhost'),
                     'user': db_config.get('user', 'root'),
                     'password': db_config.get('password', ''),
-                    'database': db_config.get('database', 'llm_agent_db')
-                })
+                    'database': db_config.get('database', 'llm_agent_db'),
+                    'port': db_config.get('port', 3306),
+                    'db_host': db_config.get('host', 'localhost'),
+                    'db_user': db_config.get('user', 'root'),
+                    'db_password': db_config.get('password', ''),
+                    'db_name': db_config.get('database', 'llm_agent_db'),
+                    'db_port': db_config.get('port', 3306)
+                }
+                self.db_tools = create_database_tools(db_tools_config)
                 logger.info("数据库工具初始化成功")
         except Exception as e:
             logger.error(f"数据库工具初始化失败: {e}")
@@ -400,8 +409,7 @@ class ReactAgent:
         enhanced_input = self._create_enhanced_input(user_input, user_id)
         self.conversation.add_system_message(enhanced_input, system_prompt)
         
-        yield f"系统提示已加载，提供商: {self.config.get('api.default_provider', 'deepseek')}, " \
-              f"模型: {self.config.default_model}\n"
+        yield f"系统提示已加载，提供商: {self.config.get('api.default_provider', 'deepseek')}, " \\\n              f"模型: {self.config.default_model}\n"
         
         max_steps = self.config.get('max_steps', 20)
         while self.step_count < max_steps:
@@ -436,8 +444,7 @@ class ReactAgent:
         
         # 输出统计信息
         stats = self.get_stats()
-        yield f"\n[统计] 用时: {stats['elapsed_time']:.1f}s, " \
-              f"步骤: {stats['steps']}, API调用: {stats['api_calls']}\n"
+        yield f"\n[统计] 用时: {stats['elapsed_time']:.1f}s, " \\\n              f"步骤: {stats['steps']}, API调用: {stats['api_calls']}\n"
     
     def get_stats(self) -> Dict[str, Any]:
         """获取运行统计"""
