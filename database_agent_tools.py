@@ -9,18 +9,35 @@ import json
 # Global database tools instance
 db_tools_instance = None
 
-def register_database_tools(tool_manager):
+def register_database_tools(tool_manager, config=None):
     """Register database tools with tool manager"""
     try:
         from database_tools import create_database_tools
         
-        # 检查是否启用数据库
-        from AgentConfig import AgentConfig
-        config = AgentConfig()
+        # 使用传入的配置或从AgentConfig获取
+        if config is None:
+            try:
+                from config_manager import ConfigManager
+                config = ConfigManager()
+            except ImportError:
+                from AgentConfig import AgentConfig
+                config = AgentConfig()
         
-        if config.enable_database:
-            global db_tools_instance
-            # 构建数据库配置字典
+        # 检查是否启用数据库
+        enable_database = False
+        db_config = {}
+        
+        # 处理不同的配置类型
+        if isinstance(config, dict):
+            enable_database = config.get('enable_database', False)
+            db_config = config
+        elif hasattr(config, 'get'):
+            # ConfigManager 类型
+            enable_database = config.get('database.enabled', False)
+            db_config = config.get('database', {})
+        else:
+            # 旧的 AgentConfig 类型
+            enable_database = config.enable_database
             db_config = {
                 'host': config.db_host,
                 'database': config.db_name,
@@ -28,7 +45,24 @@ def register_database_tools(tool_manager):
                 'password': config.db_password,
                 'port': config.db_port
             }
-            db_tools_instance = create_database_tools(db_config)
+        
+        if enable_database:
+            global db_tools_instance
+            # 构建完整的数据库配置字典
+            full_db_config = {
+                'enable_database': True,
+                'host': db_config.get('host', 'localhost'),
+                'database': db_config.get('database', 'llm_agent_db'),
+                'user': db_config.get('user', 'root'),
+                'password': db_config.get('password', ''),
+                'port': db_config.get('port', 3306),
+                'db_host': db_config.get('host', 'localhost'),
+                'db_user': db_config.get('user', 'root'),
+                'db_password': db_config.get('password', ''),
+                'db_name': db_config.get('database', 'llm_agent_db'),
+                'db_port': db_config.get('port', 3306)
+            }
+            db_tools_instance = create_database_tools(full_db_config)
             
             # 注册工具函数
             tool_manager.register_tool("search_database_context", search_database_context)
