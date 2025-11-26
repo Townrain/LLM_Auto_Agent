@@ -14,13 +14,21 @@ def register_database_tools(tool_manager):
     try:
         from database_tools import create_database_tools
         
-        # 检查是否有数据库配置和是否启用数据库
+        # 检查是否启用数据库
         from AgentConfig import AgentConfig
         config = AgentConfig()
         
-        if config.enable_database and config.database_config:
+        if config.enable_database:
             global db_tools_instance
-            db_tools_instance = create_database_tools(config.database_config)
+            # 构建数据库配置字典
+            db_config = {
+                'host': config.db_host,
+                'database': config.db_name,
+                'user': config.db_user,
+                'password': config.db_password,
+                'port': config.db_port
+            }
+            db_tools_instance = create_database_tools(db_config)
             
             # 注册工具函数
             tool_manager.register_tool("search_database_context", search_database_context)
@@ -28,9 +36,9 @@ def register_database_tools(tool_manager):
             tool_manager.register_tool("log_conversation", log_conversation)
             tool_manager.register_tool("get_user_conversation_history", get_user_conversation_history)
             
-            print("[系统] 数据库工具注册成功")
+            print("[系统] 数据库工具注册成功 - 支持智能多表搜索")
         else:
-            print("[系统] 数据库功能已禁用或无数据库配置，跳过数据库工具注册")
+            print("[系统] 数据库功能已禁用，跳过数据库工具注册")
             
     except ImportError:
         print("[系统] 数据库依赖未安装，跳过数据库工具注册")
