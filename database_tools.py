@@ -152,7 +152,8 @@ class DatabaseManager:
         # Determine search focus
         search_focus = 'general'
         
-        if any(keyword in query_lower for keyword in product_keywords) or \\\n           any(brand in query for brand in product_brands):
+        if any(keyword in query_lower for keyword in product_keywords) or \
+           any(brand in query for brand in product_brands):
             search_focus = 'products'
         elif any(keyword in query_lower for keyword in user_keywords):
             search_focus = 'users'
