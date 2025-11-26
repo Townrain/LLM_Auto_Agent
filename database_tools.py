@@ -175,6 +175,9 @@ class DatabaseTools:
     
     def search_knowledge_base(self, query: str, category: str = None, limit: int = 5) -> List[Dict]:
         """Search knowledge base for relevant information"""
+        # 改进查询：将空格替换为通配符，以便更宽松的匹配
+        query = query.replace(' ', '%')
+        
         if category:
             sql = """
                 SELECT title, content, category, tags 
@@ -194,7 +197,9 @@ class DatabaseTools:
             """
             params = (f'%{query}%', f'%{query}%', limit)
         
-        return self.db_manager.execute_query(sql, params) or []
+        results = self.db_manager.execute_query(sql, params) or []
+        logger.info(f"知识库查询: '{query}' -> 找到 {len(results)} 条结果")
+        return results
     
     def log_conversation(self, user_id: str, session_id: str, user_message: str, agent_response: str, metadata: Dict = None):
         """Log conversation to database"""
