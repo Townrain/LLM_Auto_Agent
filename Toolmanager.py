@@ -9,8 +9,9 @@ from typing import List, Dict, Any,Tuple
 class ToolManager:
     """工具管理类，处理工具的注册、调用和错误处理"""
     
-    def __init__(self):
+    def __init__(self, config=None):
         self.tools = {}
+        self.config = config
         self._register_tools_from_module()
         
     def _register_tools_from_module(self):
@@ -27,14 +28,9 @@ class ToolManager:
         
         # 尝试注册数据库工具（可选）
         try:
-            from AgentConfig import AgentConfig
-            config = AgentConfig()
-            if config.enable_database:
-                from database_agent_tools import register_database_tools
-                register_database_tools(self)
-                print("[系统] 数据库工具注册成功")
-            else:
-                print("[系统] 数据库功能已禁用，跳过数据库工具注册")
+            from database_agent_tools import register_database_tools
+            register_database_tools(self, self.config)
+            print("[系统] 数据库工具注册成功")
         except ImportError:
             print("[系统] 数据库工具模块未找到，跳过数据库工具注册")
         except Exception as e:
