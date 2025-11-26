@@ -1,12 +1,15 @@
 """
 Database Tools for LLM Agent
 Provides database query and management capabilities as agent tools
+Enhanced version with product stock and order status queries
 """
 
 import mysql.connector
 from typing import Dict, Any, List, Optional
 import logging
 import re
+
+logger = logging.getLogger(__name__)
 
 class DatabaseManager:
     """Database connection and management"""
@@ -26,9 +29,9 @@ class DatabaseManager:
                 password=self.config['password'],
                 port=self.config.get('port', 3306)
             )
-            logging.info("Database connection established")
+            logger.info("Database connection established")
         except Exception as e:
-            logging.error(f"Database connection failed: {e}")
+            logger.error(f"Database connection failed: {e}")
             raise
     
     def execute_query(self, sql: str, params: tuple = None) -> List[Dict]:
@@ -40,7 +43,7 @@ class DatabaseManager:
             cursor.close()
             return results
         except Exception as e:
-            logging.error(f"Query execution failed: {e}")
+            logger.error(f"Query execution failed: {e}")
             return []
     
     def get_table_schema(self) -> Dict[str, List[str]]:
@@ -62,7 +65,7 @@ class DatabaseManager:
             cursor.close()
             return schema
         except Exception as e:
-            logging.error(f"Failed to get table schema: {e}")
+            logger.error(f"Failed to get table schema: {e}")
             return {}
     
     def search_across_tables(self, query: str, limit: int = 5) -> Dict[str, Any]:
@@ -140,14 +143,14 @@ class DatabaseManager:
         query_lower = query.lower()
         
         # Product-related queries
-        product_keywords = ['价格', '库存', '产品', '商品', '购买', '多少钱', '有货吗', '库存']
+        product_keywords = ['价格', '库存', '产品', '商品', '购买', '多少钱', '有货吗', '库存', 'stock', 'product', 'price']
         product_brands = ['安吉白茶', '元阳红米', '青城山腊肉', '苗银手镯', '宏村竹笋', '阳朔金桔', '湘西腊鱼', '婺源皇菊']
         
         # User-related queries
-        user_keywords = ['用户', '客户', '会员', '地址', '电话', '邮箱']
+        user_keywords = ['用户', '客户', '会员', '地址', '电话', '邮箱', 'user', 'customer']
         
         # Order-related queries
-        order_keywords = ['订单', '物流', '支付', '发货', '快递', '收货']
+        order_keywords = ['订单', '物流', '支付', '发货', '快递', '收货', 'order', 'status', '物流']
         
         # Determine search focus
         search_focus = 'general'
@@ -169,7 +172,7 @@ class DatabaseManager:
                 SELECT name, description, price, stock, category, village, farmer
                 FROM products 
                 WHERE name LIKE %s OR description LIKE %s OR category LIKE %s
-                ORDER BY product_id DESC 
+                ORDER BY stock DESC, product_id DESC 
                 LIMIT %s
             """
             params = (f'%{query}%', f'%{query}%', f'%{query}%', limit)
@@ -221,6 +224,72 @@ class DatabaseManager:
             'search_focus': search_focus,
             'results': results
         }
+    
+    def get_product_stock(self, product_name: str) -> Dict[str, Any]:
+        """Get specific product stock information"""
+        try:
+            sql = """
+                SELECT name, description, price, stock, category, village, farmer
+                FROM products 
+                WHERE name LIKE %s
+                ORDER BY stock DESC
+                LIMIT 1
+            """
+            params = (f'%{product_name}%',)
+            results = self.execute_query(sql, params)
+            
+            if results:
+                product = results[0]
+                return {
+                    "status": "success",
+                    "product": product,
+                    "message": f"找到产品: {product['name']}, 库存: {product.get('stock', '未知')}"
+                }
+            else:
+                return {
+                    "status": "not_found",
+                    "message": f"未找到产品: {product_name}"
+                }
+        except Exception as e:
+            logger.error(f"Product stock query failed: {e}")
+            return {
+                "status": "error",
+                "message": f"查询失败: {str(e)}"
+            }
+    
+    def get_order_status(self, order_id: str) -> Dict[str, Any]:
+        """Get specific order status information"""
+        try:
+            sql = """
+                SELECT o.order_id, u.username, p.name as product_name, 
+                       o.quantity, o.total_price, o.order_status, o.created_at
+                FROM orders o
+                LEFT JOIN users u ON o.user_id = u.user_id
+                LEFT JOIN products p ON o.product_id = p.product_id
+                WHERE o.order_id = %s
+                LIMIT 1
+            """
+            params = (order_id,)
+            results = self.execute_query(sql, params)
+            
+            if results:
+                order = results[0]
+                return {
+                    "status": "success",
+                    "order": order,
+                    "message": f"订单 {order_id} 的状态: {order['order_status']}"
+                }
+            else:
+                return {
+                    "status": "not_found", 
+                    "message": f"未找到订单: {order_id}"
+                }
+        except Exception as e:
+            logger.error(f"Order status query failed: {e}")
+            return {
+                "status": "error",
+                "message": f"查询失败: {str(e)}"
+            }
 
 class DatabaseTools:
     """Database tools for agent use"""
@@ -267,7 +336,7 @@ class DatabaseTools:
             
             # Log the search results
             total_results = sum(len(table_data['data']) for table_data in results['results'].values())
-            logging.info(f"智能搜索: '{query}' -> 找到 {total_results} 条结果 (表: {list(results['results'].keys())})")
+            logger.info(f"智能搜索: '{query}' -> 找到 {total_results} 条结果 (表: {list(results['results'].keys())})")
             
             return {
                 "status": "success",
@@ -278,8 +347,54 @@ class DatabaseTools:
             }
             
         except Exception as e:
-            logging.error(f"Knowledge base search failed: {e}")
+            logger.error(f"Knowledge base search failed: {e}")
             return {"status": "error", "message": f"Search failed: {str(e)}"}
+    
+    def check_product_stock(self, product_name: str) -> Dict[str, Any]:
+        """Check specific product stock"""
+        if not self.db_manager:
+            return {"status": "error", "message": "Database tools not initialized"}
+        
+        try:
+            result = self.db_manager.get_product_stock(product_name)
+            logger.info(f"产品库存查询: '{product_name}' -> {result['status']}")
+            return result
+        except Exception as e:
+            logger.error(f"Product stock check failed: {e}")
+            return {"status": "error", "message": f"库存查询失败: {str(e)}"}
+    
+    def check_order_status(self, order_id: str) -> Dict[str, Any]:
+        """Check specific order status"""
+        if not self.db_manager:
+            return {"status": "error", "message": "Database tools not initialized"}
+        
+        try:
+            result = self.db_manager.get_order_status(order_id)
+            logger.info(f"订单状态查询: '{order_id}' -> {result['status']}")
+            return result
+        except Exception as e:
+            logger.error(f"Order status check failed: {e}")
+            return {"status": "error", "message": f"订单查询失败: {str(e)}"}
+    
+    def execute_sql_query(self, sql_query: str) -> Dict[str, Any]:
+        """Execute direct SQL query"""
+        if not self.db_manager:
+            return {"status": "error", "message": "Database tools not initialized"}
+        
+        try:
+            # Basic SQL injection protection - only allow SELECT queries
+            if not sql_query.strip().upper().startswith('SELECT'):
+                return {"status": "error", "message": "只允许执行SELECT查询"}
+            
+            results = self.db_manager.execute_query(sql_query)
+            return {
+                "status": "success",
+                "results": results,
+                "count": len(results)
+            }
+        except Exception as e:
+            logger.error(f"SQL query execution failed: {e}")
+            return {"status": "error", "message": f"SQL执行失败: {str(e)}"}
     
     def get_context_for_query(self, user_id: str, query: str) -> Dict[str, Any]:
         """Get context information for a user query"""
@@ -304,7 +419,7 @@ class DatabaseTools:
             return context
             
         except Exception as e:
-            logging.error(f"Context search failed: {e}")
+            logger.error(f"Context search failed: {e}")
             return {}
 
 def create_database_tools(config):
