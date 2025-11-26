@@ -1,32 +1,24 @@
 import os
+import logging
 
 class AgentConfig:
-    """Agent配置类，管理所有超参数"""
-    
     def __init__(self):
-        # API配置 - 修改为支持 DeepSeek
-        self.api_key = os.getenv("DEEPSEEK_API_KEY")
-        self.model_name = "deepseek-chat"
-        self.base_url = "https://api.deepseek.com"
-        
-        # 对话管理配置
-        self.max_steps = 10  #单次ai最多执行步骤
-        self.refresh_prompt_interval = 3 # 每N轮完整交互后将原始提示词重新发送给ai
-    
-         
-        # 工作目录配置
-        self.project_directory = "D:/"  # 这个用处不大，传入时候会将这个目录下的文件作为系统提示词一部分
-        
-        # 调试配置
-        self.show_system_messages = False  # 是否显示系统消息
-        self.conda = "New"  # conda环境名称,执行py指令时候会使用该环境
-        
         # 数据库配置
-        self.enable_database = os.getenv('ENABLE_DATABASE', 'false').lower() == 'true'
-        self.database_config = {
-            'host': os.getenv('DB_HOST', 'localhost'),
-            'database': os.getenv('DB_NAME', 'llm_agent'),
-            'user': os.getenv('DB_USER', 'root'),
-            'password': os.getenv('DB_PASSWORD', ''),
-            'port': int(os.getenv('DB_PORT', '3306'))
-        }
+        self.enable_database = os.getenv('ENABLE_DATABASE', 'false').lower() == 'true'  # 修复：应该为 'true' 时启用
+        self.db_host = os.getenv('DB_HOST', 'localhost')
+        self.db_name = os.getenv('DB_NAME', 'llm_agent')
+        self.db_user = os.getenv('DB_USER', 'root')
+        self.db_password = os.getenv('DB_PASSWORD', '')
+        self.db_port = int(os.getenv('DB_PORT', '3306'))
+        
+        # API 配置
+        self.api_provider = os.getenv('API_PROVIDER', 'deepseek')
+        self.api_key = os.getenv('DEEPSEEK_API_KEY', '')
+        self.api_base_url = os.getenv('API_BASE_URL', 'https://api.deepseek.com')
+        self.model_name = os.getenv('MODEL_NAME', 'deepseek-chat')
+        
+        # 代理配置
+        self.max_steps = int(os.getenv('MAX_STEPS', '10'))
+        self.enable_cost_tracking = os.getenv('ENABLE_COST_TRACKING', 'true').lower() == 'true'
+        
+        logging.info(f"数据库功能状态: {'已启用' if self.enable_database else '已禁用'}")
