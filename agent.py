@@ -409,7 +409,8 @@ class ReactAgent:
         enhanced_input = self._create_enhanced_input(user_input, user_id)
         self.conversation.add_system_message(enhanced_input, system_prompt)
         
-        yield f"系统提示已加载，提供商: {self.config.get('api.default_provider', 'deepseek')}, " \\\n              f"模型: {self.config.default_model}\n"
+        yield f"系统提示已加载，提供商: {self.config.get('api.default_provider', 'deepseek')}, " \
+              f"模型: {self.config.default_model}\n"
         
         max_steps = self.config.get('max_steps', 20)
         while self.step_count < max_steps:
@@ -444,7 +445,8 @@ class ReactAgent:
         
         # 输出统计信息
         stats = self.get_stats()
-        yield f"\n[统计] 用时: {stats['elapsed_time']:.1f}s, " \\\n              f"步骤: {stats['steps']}, API调用: {stats['api_calls']}\n"
+        yield f"\n[统计] 用时: {stats['elapsed_time']:.1f}s, " \
+              f"步骤: {stats['steps']}, API调用: {stats['api_calls']}\n"
     
     def get_stats(self) -> Dict[str, Any]:
         """获取运行统计"""
