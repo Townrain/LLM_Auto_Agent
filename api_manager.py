@@ -111,7 +111,7 @@ class APIManager:
     @property
     def model(self) -> str:
         """当前使用的模型"""
-        return self.config.default_model
+        return self.config.get('api.deepseek.default_model', 'deepseek-chat')
     
     def get_provider_for_model(self, model: str = None) -> str:
         """根据模型名称获取提供商"""
@@ -203,9 +203,9 @@ class APIManager:
         data = {
             "model": model,
             "messages": self._prepare_messages(messages),
-            "max_tokens": self.config.max_tokens,
-            "temperature": self.config.temperature,
-            "top_p": self.config.top_p,
+            "max_tokens": self.config.get('api.deepseek.max_tokens', 4096),
+            "temperature": self.config.get('api.deepseek.temperature', 0.7),
+            "top_p": self.config.get('api.deepseek.top_p', 1.0),
             "stream": False
         }
         
@@ -213,7 +213,7 @@ class APIManager:
         url = f"{self.deepseek_base_url.rstrip('/')}/chat/completions"
         
         logger.debug(f"调用 DeepSeek API: {model}")
-        response = requests.post(url, headers=headers, json=data, timeout=self.config.timeout)
+        response = requests.post(url, headers=headers, json=data, timeout=self.config.get('api.timeout', 60))
         response.raise_for_status()
         
         result = response.json()
@@ -246,9 +246,9 @@ class APIManager:
         response = self.openai_client.chat.completions.create(
             model=model,
             messages=self._prepare_messages(messages),
-            max_tokens=self.config.max_tokens,
-            temperature=self.config.temperature,
-            top_p=self.config.top_p
+            max_tokens=self.config.get('api.openai.max_tokens', 4096),
+            temperature=self.config.get('api.openai.temperature', 0.7),
+            top_p=self.config.get('api.openai.top_p', 1.0)
         )
         
         content = response.choices[0].message.content
@@ -291,9 +291,9 @@ class APIManager:
         kwargs = {
             "model": model,
             "messages": user_messages,
-            "max_tokens": self.config.max_tokens,
-            "temperature": self.config.temperature,
-            "top_p": self.config.top_p
+            "max_tokens": self.config.get('api.anthropic.max_tokens', 4096),
+            "temperature": self.config.get('api.anthropic.temperature', 0.7),
+            "top_p": self.config.get('api.anthropic.top_p', 1.0)
         }
         
         if system_msg:
@@ -404,7 +404,7 @@ class APIManager:
             raise ValueError("消息列表不能为空")
         
         model = model or self.model
-        provider = self.get_provider_for_model(model)
+        provider = self.get_provider_for(model)
         
         if provider != "deepseek":
             raise NotImplementedError(f"流式响应暂不支持提供商: {provider}")
@@ -419,15 +419,15 @@ class APIManager:
         data = {
             "model": model,
             "messages": self._prepare_messages(messages),
-            "max_tokens": self.config.max_tokens,
-            "temperature": self.config.temperature,
-            "top_p": self.config.top_p,
+            "max_tokens": self.config.get('api.deepseek.max_tokens', 4096),
+            "temperature": self.config.get('api.deepseek.temperature', 0.7),
+            "top_p": self.config.get('api.deepseek.top_p', 1.0),
             "stream": True
         }
         
         url = f"{self.deepseek_base_url.rstrip('/')}/chat/completions"
         
-        response = requests.post(url, headers=headers, json=data, timeout=self.config.timeout, stream=True)
+        response = requests.post(url, headers=headers, json=data, timeout=self.config.get('api.timeout', 60), stream=True)
         response.raise_for_status()
         
         for line in response.iter_lines():
@@ -472,7 +472,7 @@ if __name__ == "__main__":
     config = ConfigManager()
     
     # 检查API密钥
-    if not config.deepseek_api_key or config.deepseek_api_key == "your-deepseek-api-key-here":
+    if not config.get('api.deepseek.api_key') or config.get('api.deepseek.api_key') == "your-deepseek-api-key-here":
         print("错误: 请设置 DEEPSEEK_API_KEY 环境变量")
         exit(1)
     
