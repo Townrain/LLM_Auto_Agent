@@ -1,14 +1,13 @@
 from typing import List, Dict, Any, Optional
-from AgentConfig import AgentConfig
+from config_manager import ConfigManager
 import json
 import re
-
 
 
 class ConversationManager:
     """对话管理类，处理消息的存储"""
     
-    def __init__(self, config: AgentConfig):
+    def __init__(self, config: ConfigManager):
         self.config = config
         self.messages: List[Dict[str, Any]] = []
         self.interaction_count = 0
@@ -16,7 +15,7 @@ class ConversationManager:
     def add_message(self, role: str, content: str) -> None:
         """添加消息到对话历史"""
         message = {"role": role, "content": content}
-        if self.config.show_system_messages:
+        if self.config.get('debug.show_system_messages', False):
             print(f"[对话管理] 添加消息: {role} - {content[:100]}...")
         self.messages.append(message)
         
@@ -42,7 +41,8 @@ class ConversationManager:
         
     def should_refresh_prompt(self) -> bool:
         """检查是否需要刷新系统提示"""
-        return self.interaction_count % self.config.refresh_prompt_interval == 0
+        refresh_interval = self.config.get('prompt_refresh_interval', 3)
+        return self.interaction_count % refresh_interval == 0
 
     def refresh_context_with_prompt(self, user_question: str, system_prompt: str) -> None:
         """刷新上下文并添加新的系统提示"""
