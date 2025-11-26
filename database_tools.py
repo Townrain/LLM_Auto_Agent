@@ -152,8 +152,7 @@ class DatabaseManager:
         # Determine search focus
         search_focus = 'general'
         
-        if any(keyword in query_lower for keyword in product_keywords) or \
-           any(brand in query for brand in product_brands):
+        if any(keyword in query_lower for keyword in product_keywords) or \\\n           any(brand in query for brand in product_brands):
             search_focus = 'products'
         elif any(keyword in query_lower for keyword in user_keywords):
             search_focus = 'users'
@@ -228,13 +227,31 @@ class DatabaseTools:
     def __init__(self, config):
         self.config = config
         self.db_manager = None
-        if config.enable_database:
+        
+        # 处理字典或对象配置
+        if isinstance(config, dict):
+            enable_db = config.get('enable_database', False)
+            host = config.get('host', 'localhost')
+            database = config.get('database', 'llm_agent_db')
+            user = config.get('user', 'root')
+            password = config.get('password', '')
+            port = config.get('port', 3306)
+        else:
+            # 假设是对象，使用属性
+            enable_db = config.enable_database
+            host = config.db_host
+            database = config.db_name
+            user = config.db_user
+            password = config.db_password
+            port = config.db_port
+        
+        if enable_db:
             db_config = {
-                'host': config.db_host,
-                'database': config.db_name,
-                'user': config.db_user,
-                'password': config.db_password,
-                'port': config.db_port
+                'host': host,
+                'database': database,
+                'user': user,
+                'password': password,
+                'port': port
             }
             self.db_manager = DatabaseManager(db_config)
     
