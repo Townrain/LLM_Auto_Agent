@@ -1,268 +1,101 @@
 """
-Database Tools for LLM Agent
-Provides database query and management capabilities as agent tools
+Database Agent Tools for LLM Agent
+Registers database tools for agent use with improved descriptions and functionality
 """
 
-from typing import Dict, Any, List, Optional
-import json
+import logging
+from typing import Dict, Any, Optional
+from pydantic import BaseModel, Field
 
-# Global database tools instance
-db_tools_instance = None
+logger = logging.getLogger(__name__)
+
+class DatabaseSearchArgs(BaseModel):
+    """Arguments for database search"""
+    query: str = Field(description="Search query for database")
+    category: Optional[str] = Field(default=None, description="Optional category filter")
+    limit: int = Field(default=5, description="Maximum number of results to return")
+
+class DatabaseQueryArgs(BaseModel):
+    """Arguments for direct database queries"""
+    sql_query: str = Field(description="SQL query to execute")
+
+class ProductStockArgs(BaseModel):
+    """Arguments for product stock query"""
+    product_name: str = Field(description="Name of the product to check stock for")
+
+class OrderStatusArgs(BaseModel):
+    """Arguments for order status query"""
+    order_id: str = Field(description="Order ID to check status for")
 
 def register_database_tools(tool_manager, config=None):
-    """Register database tools with tool manager"""
+    """
+    Register database tools with the tool manager
+    
+    Args:
+        tool_manager: Tool manager instance
+        config: Database configuration (dict or object)
+    """
     try:
         from database_tools import create_database_tools
         
-        # 使用传入的配置或从AgentConfig获取
-        if config is None:
-            try:
-                from config_manager import ConfigManager
-                config = ConfigManager()
-            except ImportError:
-                from AgentConfig import AgentConfig
-                config = AgentConfig()
-        
-        # 检查是否启用数据库
-        enable_database = False
-        db_config = {}
-        
-        # 处理不同的配置类型
+        # Handle both dict and object config
         if isinstance(config, dict):
-            enable_database = config.get('enable_database', False)
             db_config = config
-        elif hasattr(config, 'get'):
-            # ConfigManager 类型
-            enable_database = config.get('database.enabled', False)
-            db_config = config.get('database', {})
         else:
-            # 旧的 AgentConfig 类型
-            enable_database = config.enable_database
-            db_config = {
-                'host': config.db_host,
-                'database': config.db_name,
-                'user': config.db_user,
-                'password': config.db_password,
-                'port': config.db_port
-            }
+            # If config is an object, convert to dict
+            db_config = {}
+            if hasattr(config, 'enable_database') and config.enable_database:
+                db_config = {
+                    'enable_database': True,
+                    'host': getattr(config, 'db_host', 'localhost'),
+                    'user': getattr(config, 'db_user', 'root'),
+                    'password': getattr(config, 'db_password', ''),
+                    'database': getattr(config, 'db_name', 'llm_agent_db'),
+                    'port': getattr(config, 'db_port', 3306)
+                }
         
-        if enable_database:
-            global db_tools_instance
-            # 构建完整的数据库配置字典
-            full_db_config = {
-                'enable_database': True,
-                'host': db_config.get('host', 'localhost'),
-                'database': db_config.get('database', 'llm_agent_db'),
-                'user': db_config.get('user', 'root'),
-                'password': db_config.get('password', ''),
-                'port': db_config.get('port', 3306),
-                'db_host': db_config.get('host', 'localhost'),
-                'db_user': db_config.get('user', 'root'),
-                'db_password': db_config.get('password', ''),
-                'db_name': db_config.get('database', 'llm_agent_db'),
-                'db_port': db_config.get('port', 3306)
-            }
-            db_tools_instance = create_database_tools(full_db_config)
+        # Create database tools instance
+        db_tools = create_database_tools(db_config)
+        
+        if db_tools and db_tools.db_manager:
+            # Register enhanced database search tool
+            tool_manager.register_tool(
+                name="search_database",
+                description="搜索数据库中的产品信息、库存状态、订单详情、用户数据等。适用于查询具体数据如产品库存、订单状态、用户信息等。对于产品库存查询、订单状态检查等场景优先使用此工具。",
+                function=db_tools.search_knowledge_base,
+                args_schema=DatabaseSearchArgs
+            )
             
-            # 注册工具函数
-            tool_manager.register_tool("search_database_context", search_database_context)
-            tool_manager.register_tool("search_knowledge_base", search_knowledge_base)
-            tool_manager.register_tool("log_conversation", log_conversation)
-            tool_manager.register_tool("get_user_conversation_history", get_user_conversation_history)
+            # Register direct SQL query tool
+            tool_manager.register_tool(
+                name="execute_sql_query",
+                description="直接执行SQL查询语句来获取数据库中的精确数据。适用于需要特定数据查询的场景。",
+                function=db_tools.execute_sql_query,
+                args_schema=DatabaseQueryArgs
+            )
             
-            print("[系统] 数据库工具注册成功 - 支持智能多表搜索")
+            # Register product stock check tool
+            tool_manager.register_tool(
+                name="check_product_stock",
+                description="直接查询特定产品的库存状态。输入产品名称，返回库存数量。",
+                function=db_tools.check_product_stock,
+                args_schema=ProductStockArgs
+            )
+            
+            # Register order status check tool
+            tool_manager.register_tool(
+                name="check_order_status", 
+                description="直接查询特定订单的状态信息。输入订单ID，返回订单状态详情。",
+                function=db_tools.check_order_status,
+                args_schema=OrderStatusArgs
+            )
+            
+            logger.info("数据库工具注册成功 - 包括搜索、SQL执行、产品库存和订单状态工具")
+            return True
         else:
-            print("[系统] 数据库功能已禁用，跳过数据库工具注册")
+            logger.warning("数据库工具未启用或初始化失败")
+            return False
             
-    except ImportError:
-        print("[系统] 数据库依赖未安装，跳过数据库工具注册")
     except Exception as e:
-        print(f"[系统] 数据库工具注册失败: {e}")
-
-def search_database_context(user_id: str, query: str) -> Dict[str, Any]:
-    """
-    从数据库搜索相关上下文信息
-    
-    Args:
-        user_id: 用户ID
-        query: 当前查询内容
-        
-    Returns:
-        包含用户个人资料、历史对话和相关知识的字典
-    """
-    if not db_tools_instance:
-        return {"error": "Database tools not initialized"}
-    
-    try:
-        context = db_tools_instance.get_context_for_query(user_id, query)
-        
-        # 格式化返回结果
-        result = {
-            "user_profile": context.get('user_profile'),
-            "recent_conversations_count": len(context.get('recent_conversations', [])),
-            "relevant_knowledge_count": len(context.get('relevant_knowledge', [])),
-            "similar_queries_count": len(context.get('similar_queries', []))
-        }
-        
-        # 添加详细信息（限制长度）
-        if context.get('recent_conversations'):
-            result['recent_conversations'] = context['recent_conversations'][:3]  # 只返回最近3条
-        
-        if context.get('relevant_knowledge'):
-            result['relevant_knowledge'] = context['relevant_knowledge'][:2]  # 只返回最相关的2条
-        
-        return result
-        
-    except Exception as e:
-        return {"error": f"Database context search failed: {str(e)}"}
-
-def search_knowledge_base(query: str, category: str = None, limit: int = 5) -> Dict[str, Any]:
-    """
-    从知识库搜索相关信息
-    
-    Args:
-        query: 搜索关键词
-        category: 分类筛选（可选）
-        limit: 返回结果数量限制
-        
-    Returns:
-        包含搜索结果的字典
-    """
-    if not db_tools_instance:
-        return {"error": "Database tools not initialized"}
-    
-    try:
-        results = db_tools_instance.search_knowledge_base(query, category, limit)
-        
-        return {
-            "query": query,
-            "category": category,
-            "results_count": len(results),
-            "results": results
-        }
-        
-    except Exception as e:
-        return {"error": f"Knowledge base search failed: {str(e)}"}
-
-def log_conversation(user_id: str, session_id: str, user_message: str, agent_response: str, metadata: Dict = None) -> Dict[str, Any]:
-    """
-    将对话记录保存到数据库
-    
-    Args:
-        user_id: 用户ID
-        session_id: 会话ID
-        user_message: 用户消息
-        agent_response: AI回复
-        metadata: 额外元数据（可选）
-        
-    Returns:
-        操作结果
-    """
-    if not db_tools_instance:
-        return {"error": "Database tools not initialized"}
-    
-    try:
-        db_tools_instance.log_conversation(user_id, session_id, user_message, agent_response, metadata)
-        
-        return {
-            "status": "success",
-            "message": "Conversation logged successfully",
-            "user_id": user_id,
-            "session_id": session_id
-        }
-        
-    except Exception as e:
-        return {"error": f"Conversation logging failed: {str(e)}"}
-
-def get_user_conversation_history(user_id: str, limit: int = 10) -> Dict[str, Any]:
-    """
-    获取用户的历史对话记录
-    
-    Args:
-        user_id: 用户ID
-        limit: 返回记录数量限制
-        
-    Returns:
-        包含历史对话的字典
-    """
-    if not db_tools_instance:
-        return {"error": "Database tools not initialized"}
-    
-    try:
-        conversations = db_tools_instance.search_conversation_history(user_id, limit=limit)
-        
-        return {
-            "user_id": user_id,
-            "conversations_count": len(conversations),
-            "conversations": conversations
-        }
-        
-    except Exception as e:
-        return {"error": f"Failed to get conversation history: {str(e)}"}
-
-def add_knowledge_entry(category: str, title: str, content: str, tags: List[str] = None, source: str = None) -> Dict[str, Any]:
-    """
-    向知识库添加新条目
-    
-    Args:
-        category: 分类
-        title: 标题
-        content: 内容
-        tags: 标签列表（可选）
-        source: 来源（可选）
-        
-    Returns:
-        操作结果
-    """
-    if not db_tools_instance:
-        return {"error": "Database tools not initialized"}
-    
-    try:
-        # 这里需要扩展 database_tools 来支持添加知识库条目
-        # 暂时返回占位符
-        return {
-            "status": "success",
-            "message": "Knowledge entry added successfully",
-            "category": category,
-            "title": title
-        }
-        
-    except Exception as e:
-        return {"error": f"Failed to add knowledge entry: {str(e)}"}
-
-def update_user_profile(user_id: str, preferences: Dict = None, context_data: Dict = None) -> Dict[str, Any]:
-    """
-    更新用户个人资料
-    
-    Args:
-        user_id: 用户ID
-        preferences: 用户偏好设置
-        context_data: 上下文数据
-        
-    Returns:
-        操作结果
-    """
-    if not db_tools_instance:
-        return {"error": "Database tools not initialized"}
-    
-    try:
-        # 这里需要扩展 database_tools 来支持更新用户资料
-        # 暂时返回占位符
-        return {
-            "status": "success",
-            "message": "User profile updated successfully",
-            "user_id": user_id
-        }
-        
-    except Exception as e:
-        return {"error": f"Failed to update user profile: {str(e)}"}
-
-# 工具函数列表，供其他模块导入
-DATABASE_TOOLS = {
-    "search_database_context": search_database_context,
-    "search_knowledge_base": search_knowledge_base,
-    "log_conversation": log_conversation,
-    "get_user_conversation_history": get_user_conversation_history,
-    "add_knowledge_entry": add_knowledge_entry,
-    "update_user_profile": update_user_profile
-}
+        logger.error(f"数据库工具注册失败: {e}")
+        return False
